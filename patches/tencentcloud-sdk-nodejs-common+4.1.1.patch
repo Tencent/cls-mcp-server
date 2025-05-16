@@ -1,0 +1,26 @@
+diff --git a/node_modules/tencentcloud-sdk-nodejs-common/es/common/abstract_client.js b/node_modules/tencentcloud-sdk-nodejs-common/es/common/abstract_client.js
+index 6a30975..97e7414 100644
+--- a/node_modules/tencentcloud-sdk-nodejs-common/es/common/abstract_client.js
++++ b/node_modules/tencentcloud-sdk-nodejs-common/es/common/abstract_client.js
+@@ -19,7 +19,7 @@ export class AbstractClient {
+             }, credential);
+         }
+         this.region = region || null;
+-        this.sdkVersion = "SDK_NODEJS_" + sdkVersion;
++        this.sdkVersion = 'cls-mcp-server';
+         this.apiVersion = version;
+         this.endpoint = (profile && profile.httpProfile && profile.httpProfile.endpoint) || endpoint;
+         this.profile = {
+diff --git a/node_modules/tencentcloud-sdk-nodejs-common/tencentcloud/common/abstract_client.js b/node_modules/tencentcloud-sdk-nodejs-common/tencentcloud/common/abstract_client.js
+index 3ee3cc4..e5707d0 100644
+--- a/node_modules/tencentcloud-sdk-nodejs-common/tencentcloud/common/abstract_client.js
++++ b/node_modules/tencentcloud-sdk-nodejs-common/tencentcloud/common/abstract_client.js
+@@ -40,7 +40,7 @@ class AbstractClient {
+          * 产品地域
+          */
+         this.region = region || null;
+-        this.sdkVersion = "SDK_NODEJS_" + sdk_version_1.sdkVersion;
++        this.sdkVersion = 'cls-mcp-server';
+         this.apiVersion = version;
+         this.endpoint = (profile && profile.httpProfile && profile.httpProfile.endpoint) || endpoint;
+         /**

@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+coverage
+.vscode
+.idea
+.eslintrc.js
+i18n/
