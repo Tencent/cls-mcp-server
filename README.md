@@ -41,6 +41,6 @@ Replace `YOUR_TENCENT_SECRET_KEY` and `YOUR_TENCENT_SECRET_ID` with your actual 
 
 Replace `TENCENTCLOUD_API_BASE_HOST` if you need to change base host of Tencent Cloud API. Default "tencentcloudapi.com".
 
-Replace `TENCENTCLOUD_REGION` with your desired default region. If no region input from AI.
+Replace `TENCENTCLOUD_REGION` with your desired default region. Will only take effect if no region input from AI.
 
 Replace `MAX_LENGTH` to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
