@@ -1,23 +1,20 @@
 #!/usr/bin/env node
 
-import { cls } from 'tencentcloud-sdk-nodejs-cls';
-import { region } from 'tencentcloud-sdk-nodejs-region';
-// eslint-disable-next-line import/no-unresolved
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-// eslint-disable-next-line import/no-unresolved
-import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
-// eslint-disable-next-line import/no-unresolved
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { z } from 'zod';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import 'dotenv/config';
+import express from 'express';
+import { cls } from 'tencentcloud-sdk-nodejs-cls';
 import { SearchLogRequest } from 'tencentcloud-sdk-nodejs-cls/tencentcloud/services/cls/v20201016/cls_models.js';
+import { region } from 'tencentcloud-sdk-nodejs-region';
+import { z } from 'zod';
+
+console.log(process.env); // remove this after you've confirmed it is working
 
 const ClsClient = cls.v20201016.Client;
 const RegionClient = region.v20220627.Client;
-
-export interface ApiResponse {
-  content: { type: 'text'; text: string }[];
-  isError?: boolean;
-}
 
 // Initialize MCP server
 const mcpServer = new McpServer({
@@ -334,13 +331,34 @@ const formatResponse = (data: any, isError?: boolean): CallToolResult => {
   };
 };
 
-async function main() {
-  const transport = new StdioServerTransport();
-  await mcpServer.connect(transport);
-  // console.log('Cls MCP Server running on stdio');
+function main() {
+  const transport = process.env.TRANSPORT;
+  if (transport === 'sse') {
+    const app = express();
+    let transport: SSEServerTransport | null = null;
+
+    app.get('/sse', (req, res) => {
+      transport = new SSEServerTransport('/messages', res);
+      mcpServer.connect(transport).catch((error) => {
+        console.error('Fatal error in main():', error);
+        process.exit(error?.code || 1);
+      });
+    });
+
+    app.post('/messages', (req, res) => {
+      if (transport) {
+        transport.handlePostMessage(req, res);
+      }
+    });
+
+    app.listen(3000);
+  } else {
+    const stdioTransport = new StdioServerTransport();
+    mcpServer.connect(stdioTransport).catch((error) => {
+      console.error('Fatal error in main():', error);
+      process.exit(error?.code || 1);
+    });
+  }
 }
 
-main().catch((error) => {
-  // console.error('Fatal error in main():', error);
-  process.exit(error?.code || 1);
-});
+main();

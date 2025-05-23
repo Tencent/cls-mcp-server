@@ -1,19 +1,20 @@
 {
   "name": "cls-mcp-server",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "main": "index.js",
   "files": [
     "dist"
   ],
   "bin": {
-    "cls-mcp-server": "./dist/index.js"
+    "cls-mcp-server": "dist/index.js"
   },
   "scripts": {
     "build": "tsc && chmod 755 dist/index.js",
     "lint": "eslint -c .eslintrc.js --fix --quiet src/**/*.ts src/**/*.tsx",
     "prepare": "husky",
     "publish": "npm run build && npm publish --registry=\"https://registry.npmjs.org/\"",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "start:sse": "npm run build && node ./dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +22,7 @@
   "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0",
+    "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "lighthouse-mcp-server": "^0.0.6",
     "lodash.isnil": "^4.0.0",

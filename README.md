@@ -10,7 +10,9 @@ Follow [Node.js](https://nodejs.org/) instructions to install Node.js.
 
 ### MCP Server Setup
 
-To configure `cls-mcp-server` as an MCP service, add the following JSON configuration to your `mcpServers` settings:
+#### Stdio
+
+To configure `cls-mcp-server` as an MCP service in stdio transport, add the following JSON configuration to your `mcpServers` settings:
 
 ```json
 {
@@ -26,6 +28,7 @@ To configure `cls-mcp-server` as an MCP service, add the following JSON configur
         "cls-mcp-server"
       ],
       "env": {
+        "TRANSPORT": "stdio",
         "TENCENTCLOUD_SECRET_ID": "YOUR_TENCENT_SECRET_ID",
         "TENCENTCLOUD_SECRET_KEY": "YOUR_TENCENT_SECRET_KEY",
         "TENCENTCLOUD_API_BASE_HOST": "tencentcloudapi.com",
@@ -36,11 +39,49 @@ To configure `cls-mcp-server` as an MCP service, add the following JSON configur
   }
 }
 ```
+Go to [Environment value explanation](#environment-value-explanation) for detail explanation.
 
-Replace `YOUR_TENCENT_SECRET_KEY` and `YOUR_TENCENT_SECRET_ID` with your actual Tencent Cloud credentials.
+#### SSE
+1. Create `.env` in current path, config environment values:
 
-Replace `TENCENTCLOUD_API_BASE_HOST` if you need to change base host of Tencent Cloud API. Default "tencentcloudapi.com".
+```
+TRANSPORT=sse
+TENCENTCLOUD_SECRET_ID=YOUR_TENCENT_SECRET_ID
+TENCENTCLOUD_SECRET_KEY=YOUR_TENCENT_SECRET_KEY
+TENCENTCLOUD_API_BASE_HOST=tencentcloudapi.com
+TENCENTCLOUD_REGION=ap-guangzhou
+MAX_LENGTH=15000
+```
 
-Replace `TENCENTCLOUD_REGION` with your desired default region. Will only take effect if no region input from AI.
+2. Run command 
+```
+npm run start:sse
+```
 
-Replace `MAX_LENGTH` to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
+3. Config your `mcpServers` settings
+```json
+{
+  "mcpServers": {
+    "cls-mcp-server": {
+      "name": "cls-mcp-server",
+      "type": "sse",
+      "isActive": true,
+      "baseUrl": "http://localhost:3000/sse"
+    }
+  }
+}
+```
+
+Go to [Environment value explanation](#environment-value-explanation) for detail explanation.
+
+#### Environment value explanation
+
+Replace `TRANSPORT` value to config MCP transport, `stdio` or `sse`. Default `stdio`.
+
+Replace `YOUR_TENCENT_SECRET_ID` and `YOUR_TENCENT_SECRET_KEY` with your actual Tencent Cloud credentials.
+
+Replace `TENCENTCLOUD_API_BASE_HOST` value if you need to change base host of Tencent Cloud API. Default "tencentcloudapi.com".
+
+Replace `TENCENTCLOUD_REGION` value with your desired default region. Will only take effect if no region input from AI.
+
+Replace `MAX_LENGTH` value to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
