@@ -25,7 +25,7 @@ To configure `cls-mcp-server` as an MCP service in stdio transport, add the foll
       "command": "npx",
       "args": [
         "-y",
-        "cls-mcp-server"
+        "cls-mcp-server@latest"
       ],
       "env": {
         "TRANSPORT": "stdio",
@@ -59,7 +59,7 @@ PORT=3000
 2. Run command to start sse server
 
 ```
-npx -y cls-mcp-server
+npx -y cls-mcp-server@latest
 ```
 
 3. Config your `mcpServers` settings

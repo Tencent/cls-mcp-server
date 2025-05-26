@@ -340,15 +340,10 @@ function main() {
 
     app.get('/sse', (req, res) => {
       transport = new SSEServerTransport('/messages', res);
-      mcpServer
-        .connect(transport)
-        .then(() => {
-          console.log(`Started cls-mcp-server in sse transport on port ${port}.`);
-        })
-        .catch((error) => {
-          console.error('Fatal error in main():', error);
-          process.exit(error?.code || 1);
-        });
+      mcpServer.connect(transport).catch((error) => {
+        console.error('Fatal error in main():', error);
+        process.exit(error?.code || 1);
+      });
     });
 
     app.post('/messages', (req, res) => {
@@ -358,6 +353,8 @@ function main() {
     });
 
     app.listen(port);
+
+    console.log(`Started cls-mcp-server in sse transport on port ${port}.`);
   } else {
     const stdioTransport = new StdioServerTransport();
     mcpServer
