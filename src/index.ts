@@ -351,7 +351,7 @@ function main() {
       }
     });
 
-    app.listen(3000);
+    app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
   } else {
     const stdioTransport = new StdioServerTransport();
     mcpServer.connect(stdioTransport).catch((error) => {

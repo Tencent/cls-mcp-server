@@ -10,7 +10,7 @@ Follow [Node.js](https://nodejs.org/) instructions to install Node.js.
 
 ### MCP Server Setup
 
-#### Stdio
+#### Stdio (Recommend)
 
 To configure `cls-mcp-server` as an MCP service in stdio transport, add the following JSON configuration to your `mcpServers` settings:
 
@@ -39,9 +39,11 @@ To configure `cls-mcp-server` as an MCP service in stdio transport, add the foll
   }
 }
 ```
+
 Go to [Environment value explanation](#environment-value-explanation) for detail explanation.
 
 #### SSE
+
 1. Create `.env` in current path, config environment values:
 
 ```
@@ -51,14 +53,23 @@ TENCENTCLOUD_SECRET_KEY=YOUR_TENCENT_SECRET_KEY
 TENCENTCLOUD_API_BASE_HOST=tencentcloudapi.com
 TENCENTCLOUD_REGION=ap-guangzhou
 MAX_LENGTH=15000
+PORT=3000
 ```
 
-2. Run command 
+2. Install `cls-mcp-server` globally by npm
+
 ```
-npm run start:sse
+npm install -g cls-mcp-server@latest
 ```
 
-3. Config your `mcpServers` settings
+3. Run `cls-mcp-server` command to start sse server
+
+```
+cls-mcp-server
+```
+
+4. Config your `mcpServers` settings
+
 ```json
 {
   "mcpServers": {
@@ -85,3 +96,5 @@ Replace `TENCENTCLOUD_API_BASE_HOST` value if you need to change base host of Te
 Replace `TENCENTCLOUD_REGION` value with your desired default region. Will only take effect if no region input from AI.
 
 Replace `MAX_LENGTH` value to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
+
+Replace `PORT` value to change sse server port. Default `3000`. Will only take effect in sse transport.
