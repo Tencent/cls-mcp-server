@@ -11,7 +11,7 @@ import { SearchLogRequest } from 'tencentcloud-sdk-nodejs-cls/tencentcloud/servi
 import { region } from 'tencentcloud-sdk-nodejs-region';
 import { z } from 'zod';
 
-console.log(process.env); // remove this after you've confirmed it is working
+// console.log(process.env); // remove this after you've confirmed it is working
 
 const ClsClient = cls.v20201016.Client;
 const RegionClient = region.v20220627.Client;
@@ -336,13 +336,19 @@ function main() {
   if (transport === 'sse') {
     const app = express();
     let transport: SSEServerTransport | null = null;
+    const port = process.env.PORT ? Number(process.env.PORT) : 3000;
 
     app.get('/sse', (req, res) => {
       transport = new SSEServerTransport('/messages', res);
-      mcpServer.connect(transport).catch((error) => {
-        console.error('Fatal error in main():', error);
-        process.exit(error?.code || 1);
-      });
+      mcpServer
+        .connect(transport)
+        .then(() => {
+          console.log(`Started cls-mcp-server in sse transport on port ${port}.`);
+        })
+        .catch((error) => {
+          console.error('Fatal error in main():', error);
+          process.exit(error?.code || 1);
+        });
     });
 
     app.post('/messages', (req, res) => {
@@ -351,13 +357,18 @@ function main() {
       }
     });
 
-    app.listen(process.env.PORT ? Number(process.env.PORT) : 3000);
+    app.listen(port);
   } else {
     const stdioTransport = new StdioServerTransport();
-    mcpServer.connect(stdioTransport).catch((error) => {
-      console.error('Fatal error in main():', error);
-      process.exit(error?.code || 1);
-    });
+    mcpServer
+      .connect(stdioTransport)
+      .then(() => {
+        console.log(`Started cls-mcp-server in stdio transport.`);
+      })
+      .catch((error) => {
+        console.error('Fatal error in main():', error);
+        process.exit(error?.code || 1);
+      });
   }
 }
 

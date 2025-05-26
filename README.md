@@ -56,19 +56,13 @@ MAX_LENGTH=15000
 PORT=3000
 ```
 
-2. Install `cls-mcp-server` globally by npm
+2. Run command to start sse server
 
 ```
-npm install -g cls-mcp-server@latest
+npx -y cls-mcp-server
 ```
 
-3. Run `cls-mcp-server` command to start sse server
-
-```
-cls-mcp-server
-```
-
-4. Config your `mcpServers` settings
+3. Config your `mcpServers` settings
 
 ```json
 {
