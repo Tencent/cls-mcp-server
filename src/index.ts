@@ -92,6 +92,7 @@ mcpServer.tool(
           },
         },
       });
+      clsClient.sdkVersion = 'cls-mcp-server';
 
       const capiParams: SearchLogRequest = {
         SyntaxRule: 1,
@@ -166,6 +167,7 @@ mcpServer.tool(
           },
         },
       });
+      clsClient.sdkVersion = 'cls-mcp-server';
 
       const response = await clsClient.DescribeTopics({
         Filters: searchText
@@ -217,6 +219,7 @@ mcpServer.tool(
           },
         },
       });
+      regionClient.sdkVersion = 'cls-mcp-server';
 
       const response = await regionClient.DescribeRegions({
         Product: 'cls',
@@ -276,6 +279,7 @@ mcpServer.tool(
         },
       },
     });
+    clsClient.sdkVersion = 'cls-mcp-server';
 
     try {
       const response = await clsClient.request('ChatCompletions', {
