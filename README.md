@@ -6,7 +6,7 @@ This project is a Node.js server that integrates with Tencent Cloud Log Service 
 
 ### Install Node.js
 
-Follow [Node.js](https://nodejs.org/) instructions to install Node.js.
+Follow [Node.js](https://nodejs.org/) instructions to install Node.js. LTS version is recommended.
 
 ### MCP Server Setup
 
