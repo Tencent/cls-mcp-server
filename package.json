@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "main": "index.js",
   "files": [
     "dist"
@@ -20,17 +20,19 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.9.0",
+    "@modelcontextprotocol/sdk": "^1.25.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "tencentcloud-sdk-nodejs-cls": "^4.1.18",
-    "tencentcloud-sdk-nodejs-common": "^4.1.1",
-    "tencentcloud-sdk-nodejs-region": "^4.0.997",
-    "zod": "^3.24.3"
+    "moment": "^2.30.1",
+    "moment-timezone": "^0.6.0",
+    "tencentcloud-sdk-nodejs-cls": "^4.1.158",
+    "tencentcloud-sdk-nodejs-common": "^4.1.122",
+    "tencentcloud-sdk-nodejs-region": "^4.1.137",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@commitlint/cli": "^18.6.1",
-    "@commitlint/config-conventional": "^18.6.3",
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
     "@types/express": "^5.0.1",
     "@types/ip": "^1.1.3",
     "@types/jest": "^29.5.0",

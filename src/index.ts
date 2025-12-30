@@ -6,8 +6,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import 'dotenv/config';
 import express from 'express';
+import moment from 'moment-timezone';
 import { cls } from 'tencentcloud-sdk-nodejs-cls';
-import { SearchLogRequest } from 'tencentcloud-sdk-nodejs-cls/tencentcloud/services/cls/v20201016/cls_models.js';
+import {
+  DescribeLogContextRequest,
+  SearchLogRequest,
+} from 'tencentcloud-sdk-nodejs-cls/tencentcloud/services/cls/v20201016/cls_models.js';
 import { region } from 'tencentcloud-sdk-nodejs-region';
 import { z } from 'zod';
 
@@ -29,12 +33,12 @@ const SearchLogRequestSchema = {
   From: z
     .number()
     .describe(
-      '要检索分析的日志的起始时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用GetCurrentTimestamp工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。',
+      '要检索分析的日志的起始时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用 GetCurrentTimestamp 工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。也可以调用 ConvertTimeStringToTimestamp 直接获取时间戳参数。',
     ),
   To: z
     .number()
     .describe(
-      '要检索分析的日志的结束时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用GetCurrentTimestamp工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。',
+      '要检索分析的日志的结束时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用 GetCurrentTimestamp 工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。也可以调用 ConvertTimeStringToTimestamp 直接获取时间戳参数。',
     ),
   Query: z.string().describe('检索分析语句，最大长度为12KB。如果不限定检索条件，可传 * 或 空字符串，可查询所有日志'),
   TopicId: z.string().optional().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
@@ -57,10 +61,37 @@ const SearchLogRequestSchema = {
   Region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
 };
 
-mcpServer.tool(
+mcpServer.registerTool(
   'SearchLog',
-  'Search logs based on query parameters',
-  SearchLogRequestSchema,
+  {
+    description: 'Search logs based on query parameters',
+    inputSchema: SearchLogRequestSchema,
+    /* outputSchema: z.object({
+      Analysis: z.boolean().describe('返回的是否为统计分析（即SQL）结果'),
+      AnalysisRecords: z.array(z.string()).describe('统计分析（即SQL）结果。Analysis为true时，返回该字段'),
+      Results: z
+        .array(
+          z.object({
+            Time: z.number().describe('日志时间，单位ms'),
+            Source: z.string().describe('日志来源IP'),
+            FileName: z.string().describe('日志文件名称'),
+            PkgId: z
+              .string()
+              .describe(
+                '日志上报请求包的ID。结合 PkgLogId 一起，可作为参数通过 DescribeLogContext 工具获取日志上下文信息。',
+              ),
+            PkgLogId: z
+              .string()
+              .describe(
+                '请求包内日志的ID。结合 PkgId 一起，可作为参数通过 DescribeLogContext 工具获取日志上下文信息。',
+              ),
+            LogJson: z.string().describe('日志内容的Json序列化字符串'),
+            HostName: z.string().describe('日志来源主机名称'),
+          }),
+        )
+        .describe('匹配检索条件的原始日志。Analysis为false时，返回该字段'),
+    }), */
+  },
   async ({
     From,
     To,
@@ -125,28 +156,138 @@ mcpServer.tool(
       if (response.Analysis) {
         return formatResponse(response.AnalysisRecords);
       }
-      return formatResponse(response.Results?.map((result) => result?.LogJson));
+      return formatResponse(
+        response.Results?.map((result) => ({
+          Time: result.Time,
+          Source: result.Source,
+          FileName: result.FileName,
+          PkgId: result.PkgId,
+          PkgLogId: result.PkgLogId,
+          LogJson: result.LogJson,
+          HostName: result.HostName,
+        })),
+      );
     } catch (e: any) {
       return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
     }
   },
 );
 
-mcpServer.tool(
-  'GetTopicInfoByName',
-  'search topic info by topic name',
+export const TIMEZONE_SHANGHAI = 'Asia/Shanghai';
+export const SEARCH_TIME_TEXT_FORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
+mcpServer.registerTool(
+  'DescribeLogContext',
   {
-    searchText: z
-      .string()
-      .optional()
-      .describe('Text to search, possible value: topic name. If not provided, will search all topics'),
-    preciseSearch: z
-      .boolean()
-      .default(false)
-      .describe('If precise search(true) or fuzzy search(false), default false. Recommend to use fuzzy search.'),
-    region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
-    offset: z.number().optional().describe('Offset of the topic list, default 0'),
-    limit: z.number().optional().describe('Limit of the topic list, default 20'),
+    description: '搜索日志上下文附近的内容',
+    inputSchema: {
+      Region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
+      TopicId: z.string().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
+      Time: z
+        .number()
+        .describe('日志时间，单位ms。通过 SearchLog 工具检索原始日志时，Results 结构体中会返回 Time 字段。'),
+      PkgId: z
+        .string()
+        .describe('日志上报请求包的ID。通过 SearchLog 工具检索原始日志时，Results 结构体中会返回 PkgId 字段。'),
+      PkgLogId: z
+        .string()
+        .describe('请求包内日志的ID。通过 SearchLog 工具检索原始日志时，Results 结构体中会返回 PkgLogId 字段。'),
+      PrevLogs: z.number().optional().default(10).describe('前${PrevLogs}条日志，默认值10。'),
+      NextLogs: z.number().optional().default(10).describe('后${NextLogs}条日志，默认值10。'),
+      Query: z.string().optional().describe('检索语句，对日志上下文进行过滤，不支持SQL语句。'),
+      From: z.number().optional().describe('上下文检索的开始时间，单位ms。'),
+      To: z.number().optional().describe('上下文检索的结束时间，单位ms。'),
+    },
+  },
+  async ({
+    Region: regionFromAI,
+    TopicId,
+    Time,
+    PkgId,
+    PkgLogId,
+    PrevLogs = 10,
+    NextLogs = 10,
+    Query,
+    From,
+    To,
+  }): Promise<CallToolResult> => {
+    try {
+      const region = regionFromAI || process.env.TENCENTCLOUD_REGION;
+      if (!region) {
+        throw new Error('no Region is provided.');
+      }
+      if (!TopicId) {
+        throw new Error('no TopicId is provided.');
+      }
+      if (!Time) {
+        throw new Error('no Time is provided.');
+      }
+      if (!PkgId) {
+        throw new Error('no PkgId is provided.');
+      }
+      if (!PkgLogId) {
+        throw new Error('no PkgLogId is provided.');
+      }
+      const cloudApiBaseHost = process.env.TENCENTCLOUD_API_BASE_HOST || 'tencentcloudapi.com';
+      const clsClient = new ClsClient({
+        credential: {
+          secretId: process.env.TENCENTCLOUD_SECRET_ID,
+          secretKey: process.env.TENCENTCLOUD_SECRET_KEY,
+        },
+        region,
+        profile: {
+          language: 'zh-CN',
+          httpProfile: {
+            endpoint: `cls.${cloudApiBaseHost}`,
+          },
+        },
+      });
+      clsClient.sdkVersion = 'cls-mcp-server';
+
+      const capiParams: DescribeLogContextRequest = {
+        TopicId,
+        BTime: moment(Time).tz(TIMEZONE_SHANGHAI).format(SEARCH_TIME_TEXT_FORMAT),
+        PkgId,
+        PkgLogId: Number(PkgLogId),
+        PrevLogs,
+        NextLogs,
+        From,
+        To,
+        ...(Query && {
+          Query,
+        }),
+        ...(From && {
+          From,
+        }),
+        ...(To && {
+          To,
+        }),
+      };
+
+      const response = await clsClient.DescribeLogContext(capiParams);
+      return formatResponse(response);
+    } catch (e: any) {
+      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+    }
+  },
+);
+
+mcpServer.registerTool(
+  'GetTopicInfoByName',
+  {
+    description: 'search topic info by topic name',
+    inputSchema: {
+      searchText: z
+        .string()
+        .optional()
+        .describe('Text to search, possible value: topic name. If not provided, will search all topics'),
+      preciseSearch: z
+        .boolean()
+        .default(false)
+        .describe('If precise search(true) or fuzzy search(false), default false. Recommend to use fuzzy search.'),
+      region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
+      offset: z.number().optional().default(0).describe('Offset of the topic list, default 0'),
+      limit: z.number().optional().default(20).describe('Limit of the topic list, default 20'),
+    },
   },
   async ({ region: regionFromAI, searchText, preciseSearch, offset = 0, limit = 20 }) => {
     try {
@@ -196,16 +337,18 @@ mcpServer.tool(
   },
 );
 
-mcpServer.tool(
+mcpServer.registerTool(
   'GetRegionCodeByName',
-  'search region parameter by region name',
   {
-    searchText: z.string().describe('region name to search, e.g. Hong Kong or 广州'),
-    language: z
-      .string()
-      .optional()
-      .default('zh-CN')
-      .describe('search text language, "zh-CN" or "en-US", default zh-CN'),
+    description: 'search region parameter by region name',
+    inputSchema: {
+      searchText: z.string().describe('region name to search, e.g. Hong Kong or 广州'),
+      language: z
+        .string()
+        .optional()
+        .default('zh-CN')
+        .describe('search text language, "zh-CN" or "en-US", default zh-CN'),
+    },
   },
   async ({ searchText, language }) => {
     try {
@@ -250,17 +393,55 @@ mcpServer.tool(
   },
 );
 
-mcpServer.tool('GetCurrentTimestamp', 'get current timestamp in milliseconds', {}, () => formatResponse(Date.now()));
-
-mcpServer.tool(
-  'TextToSearchLogQuery',
-  'get cls SearchLog Query with natual language generated by user',
+mcpServer.registerTool('GetCurrentTimestamp', { description: 'get current timestamp in milliseconds' }, () =>
+  formatResponse(Date.now()),
+);
+mcpServer.registerTool(
+  'ConvertTimeStringToTimestamp',
   {
-    Text: z
-      .string()
-      .describe('natual language input generated by user, e.g. 查询日志条数 or Get error logs distribution over time.'),
-    Region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
-    TopicId: z.string().optional().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
+    description: 'convert time string to timestamp in milliseconds',
+    inputSchema: {
+      timeString: z.string().describe('time string to convert, e.g. 2025-06-01 12:00:00'),
+      timeFormat: z
+        .string()
+        .optional()
+        .default('%Y-%m-%d %H:%M:%S')
+        .describe('time format to use, e.g. YYYY-MM-DD HH:mm:ss'),
+      timeZone: z.string().optional().default(TIMEZONE_SHANGHAI).describe('time zone to use, e.g. Asia/Shanghai'),
+    },
+  },
+  ({ timeString, timeFormat, timeZone }) => formatResponse(moment.tz(timeString, timeFormat, timeZone).valueOf()),
+);
+mcpServer.registerTool(
+  'ConvertTimestampToTimeString',
+  {
+    description: 'convert timestamp to time string',
+    inputSchema: {
+      timestamp: z.number().describe('timestamp in milliseconds to convert, e.g. 1717286400000'),
+      timeFormat: z
+        .string()
+        .optional()
+        .default('%Y-%m-%d %H:%M:%S')
+        .describe('time format to use, e.g. YYYY-MM-DD HH:mm:ss'),
+      timeZone: z.string().optional().default(TIMEZONE_SHANGHAI).describe('time zone to use, e.g. Asia/Shanghai'),
+    },
+  },
+  ({ timestamp, timeFormat, timeZone }) => formatResponse(moment(timestamp).tz(timeZone).format(timeFormat)),
+);
+
+mcpServer.registerTool(
+  'TextToSearchLogQuery',
+  {
+    description: 'get cls SearchLog Query with natual language generated by user',
+    inputSchema: {
+      Text: z
+        .string()
+        .describe(
+          'natual language input generated by user, e.g. 查询日志条数 or Get error logs distribution over time.',
+        ),
+      Region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
+      TopicId: z.string().optional().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
+    },
   },
   async ({ Text, TopicId, Region: regionFromAI }) => {
     const region = regionFromAI || process.env.TENCENTCLOUD_REGION;
