@@ -145,8 +145,10 @@ mcpServer.tool(
       .default(false)
       .describe('If precise search(true) or fuzzy search(false), default false. Recommend to use fuzzy search.'),
     region: z.string().describe('地域信息，必传，如：ap-guangzhou'),
+    offset: z.number().optional().describe('Offset of the topic list, default 0'),
+    limit: z.number().optional().describe('Limit of the topic list, default 20'),
   },
-  async ({ region: regionFromAI, searchText, preciseSearch }) => {
+  async ({ region: regionFromAI, searchText, preciseSearch, offset = 0, limit = 20 }) => {
     try {
       const region = regionFromAI || process.env.TENCENTCLOUD_REGION;
       if (!region) {
@@ -179,6 +181,8 @@ mcpServer.tool(
             ]
           : [],
         PreciseSearch: preciseSearch ? 1 : 0,
+        Offset: offset,
+        Limit: limit,
       });
       const topics = response?.Topics?.map((topic) => ({
         TopicName: topic.TopicName,
