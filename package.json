@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "main": "index.js",
   "files": [
     "dist"
@@ -20,7 +20,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/sdk": "^1.25.2",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "moment": "^2.30.1",
