@@ -32,7 +32,6 @@ To configure `cls-mcp-server` as an MCP service in stdio transport, add the foll
         "TENCENTCLOUD_SECRET_ID": "YOUR_TENCENT_SECRET_ID",
         "TENCENTCLOUD_SECRET_KEY": "YOUR_TENCENT_SECRET_KEY",
         "TENCENTCLOUD_API_BASE_HOST": "tencentcloudapi.com",
-        "TENCENTCLOUD_REGION": "ap-guangzhou",
         "MAX_LENGTH": "15000"
       }
     }
@@ -51,7 +50,6 @@ TRANSPORT=sse
 TENCENTCLOUD_SECRET_ID=YOUR_TENCENT_SECRET_ID
 TENCENTCLOUD_SECRET_KEY=YOUR_TENCENT_SECRET_KEY
 TENCENTCLOUD_API_BASE_HOST=tencentcloudapi.com
-TENCENTCLOUD_REGION=ap-guangzhou
 MAX_LENGTH=15000
 PORT=3000
 ```
@@ -86,8 +84,6 @@ Replace `TRANSPORT` value to config MCP transport, `stdio` or `sse`. Default `st
 Replace `YOUR_TENCENT_SECRET_ID` and `YOUR_TENCENT_SECRET_KEY` with your actual Tencent Cloud credentials.
 
 Replace `TENCENTCLOUD_API_BASE_HOST` value if you need to change base host of Tencent Cloud API. Default "tencentcloudapi.com".
-
-Replace `TENCENTCLOUD_REGION` value with your desired default region. Will only take effect if no region input from AI.
 
 Replace `MAX_LENGTH` value to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
 
