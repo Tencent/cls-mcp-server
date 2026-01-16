@@ -32,7 +32,8 @@ To configure `cls-mcp-server` as an MCP service in stdio transport, add the foll
         "TENCENTCLOUD_SECRET_ID": "YOUR_TENCENT_SECRET_ID",
         "TENCENTCLOUD_SECRET_KEY": "YOUR_TENCENT_SECRET_KEY",
         "TENCENTCLOUD_API_BASE_HOST": "tencentcloudapi.com",
-        "MAX_LENGTH": "15000"
+        "MAX_LENGTH": "15000",
+        "TZ": "Asia/Shanghai"
       }
     }
   }
@@ -52,6 +53,7 @@ TENCENTCLOUD_SECRET_KEY=YOUR_TENCENT_SECRET_KEY
 TENCENTCLOUD_API_BASE_HOST=tencentcloudapi.com
 MAX_LENGTH=15000
 PORT=3000
+TZ=Asia/Shanghai
 ```
 
 2. Run command to start sse server
@@ -88,3 +90,5 @@ Replace `TENCENTCLOUD_API_BASE_HOST` value if you need to change base host of Te
 Replace `MAX_LENGTH` value to fit token length requirement of your AI model. If not provided, will send entire response to AI model.
 
 Replace `PORT` value to change sse server port. Default `3000`. Will only take effect in sse transport.
+
+Replace `TZ` value to change timezone. Will use server timezone if not provided.

@@ -9,7 +9,7 @@
     "cls-mcp-server": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc && chmod 755 dist/index.js",
+    "build": "webpack && chmod 755 dist/index.js",
     "lint": "eslint -c .eslintrc.js --fix --quiet src/**/*.ts src/**/*.tsx",
     "prepare": "husky",
     "publish:npm": "npm i && npm run build && npm publish --registry=\"https://registry.npmjs.org/\"",
@@ -48,8 +48,12 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.5.1",
     "prettier": "^2.8.8",
+    "ts-loader": "^9.5.1",
     "ts-node": "^10.9.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^5.1.4",
+    "webpack-node-externals": "^3.0.0"
   },
   "lint-staged": {
     "src/**/*.{js,jsx,ts,tsx}": [

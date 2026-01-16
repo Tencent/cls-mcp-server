@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 // console.log(process.env); // remove this after you've confirmed it is working
 
+const capiClientVersion = `cls-mcp-server-${process.env.CLS_MCP_SERVER_VERSION}`;
 const ClsClient = cls.v20201016.Client;
 const RegionClient = region.v20220627.Client;
 
@@ -37,12 +38,12 @@ const SearchLogRequestSchema = {
   From: z
     .number()
     .describe(
-      '要检索分析的日志的起始时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用 GetCurrentTimestamp 工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。也可以调用 ConvertTimeStringToTimestamp 直接获取时间戳参数。',
+      '要检索分析的日志的起始时间，Unix时间戳（毫秒单位）。应当先调用 ConvertTimestampToTimeString 工具获取当前时间(不传timestamp参数就是获取当前时间)，基于时间字符串计算好From、To参数后，再调用 ConvertTimeStringToTimestamp 工具获取时间戳。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。',
     ),
   To: z
     .number()
     .describe(
-      '要检索分析的日志的结束时间，Unix时间戳（需要传毫秒粒度）。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。计算相对时间（如近15分钟）时，如果AI模型不知道当前时间，AI模型应该先调用 GetCurrentTimestamp 工具获取当前时间，再基于这个当前时间去计算相对时间。传入的参数是数字整形，如涉及加减乘除等数学运算，应传入运算结果的数字整形，不要传入一个数学运算公式。也可以调用 ConvertTimeStringToTimestamp 直接获取时间戳参数。',
+      '要检索分析的日志的结束时间，Unix时间戳（毫秒单位）。应当先调用 ConvertTimestampToTimeString 工具获取当前时间(不传timestamp参数就是获取当前时间)，基于时间字符串计算好From、To参数后，再调用 ConvertTimeStringToTimestamp 工具获取时间戳。To减去From的时间范围建议不要过大，建议默认近15分钟，否则会导致返回的日志过多，影响性能。',
     ),
   Query: z.string().describe('检索分析语句，最大长度为12KB。如果不限定检索条件，可传 * 或 空字符串，可查询所有日志'),
   TopicId: z.string().optional().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
@@ -127,7 +128,7 @@ mcpServer.registerTool(
           },
         },
       });
-      clsClient.sdkVersion = 'cls-mcp-server';
+      clsClient.sdkVersion = capiClientVersion;
 
       const capiParams: SearchLogRequest = {
         SyntaxRule: 1,
@@ -179,6 +180,7 @@ mcpServer.registerTool(
 
 export const TIMEZONE_SHANGHAI = 'Asia/Shanghai';
 export const SEARCH_TIME_TEXT_FORMAT = 'YYYY-MM-DD HH:mm:ss.SSS';
+export const ISO_8601_TIME_FORMAT = 'YYYY-MM-DDTHH:mm:ss.sssZ';
 mcpServer.registerTool(
   'DescribeLogContext',
   {
@@ -245,7 +247,7 @@ mcpServer.registerTool(
           },
         },
       });
-      clsClient.sdkVersion = 'cls-mcp-server';
+      clsClient.sdkVersion = capiClientVersion;
 
       const capiParams: DescribeLogContextRequest = {
         TopicId,
@@ -314,7 +316,7 @@ mcpServer.registerTool(
           },
         },
       });
-      clsClient.sdkVersion = 'cls-mcp-server';
+      clsClient.sdkVersion = capiClientVersion;
 
       const response = await clsClient.DescribeTopics({
         Filters: searchText
@@ -370,7 +372,7 @@ mcpServer.registerTool(
           },
         },
       });
-      regionClient.sdkVersion = 'cls-mcp-server';
+      regionClient.sdkVersion = capiClientVersion;
 
       const response = await regionClient.DescribeRegions({
         Product: 'cls',
@@ -397,40 +399,86 @@ mcpServer.registerTool(
   },
 );
 
-mcpServer.registerTool('GetCurrentTimestamp', { description: 'get current timestamp in milliseconds' }, () =>
+/* mcpServer.registerTool('GetCurrentTimestamp', { description: 'get current timestamp in milliseconds' }, () =>
   formatResponse(Date.now()),
-);
+); */
+
+const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const defaultTimeZone = process.env.TZ || systemTimeZone || TIMEZONE_SHANGHAI;
 mcpServer.registerTool(
   'ConvertTimeStringToTimestamp',
   {
-    description: 'convert time string to timestamp in milliseconds',
+    description: 'Convert time string to timestamp in milliseconds',
     inputSchema: {
-      timeString: z.string().describe('time string to convert, e.g. 2025-06-01 12:00:00'),
+      timeString: z
+        .string()
+        .describe(
+          `Time string to convert, e.g. 2026-01-07T02:34:53.623Z. Strongly recommended to use ISO 8601 format (${ISO_8601_TIME_FORMAT}). Must provide timeFormat parameter if timeString is not ISO 8601 format.`,
+        ),
       timeFormat: z
         .string()
         .optional()
-        .default('%Y-%m-%d %H:%M:%S')
-        .describe('time format to use, e.g. YYYY-MM-DD HH:mm:ss'),
-      timeZone: z.string().optional().default(TIMEZONE_SHANGHAI).describe('time zone to use, e.g. Asia/Shanghai'),
+        .default(ISO_8601_TIME_FORMAT)
+        .describe(
+          `Time format to use, e.g. ${ISO_8601_TIME_FORMAT}. Default to use ISO 8601 format (${ISO_8601_TIME_FORMAT}). Must provide timeFormat parameter if timeString is not ISO 8601 format.`,
+        ),
+      timeZone: z
+        .string()
+        .optional()
+        .default(defaultTimeZone)
+        .describe(
+          'Time zone to use, e.g. Asia/Shanghai. Must provide timeZone parameter if timeString format does not include timezone offset information.',
+        ),
     },
   },
-  ({ timeString, timeFormat, timeZone }) => formatResponse(moment.tz(timeString, timeFormat, timeZone).valueOf()),
+  ({ timeString, timeFormat, timeZone }) => {
+    if (!timeString) {
+      throw new Error('no timeString provided.');
+    }
+    if (!timeFormat) {
+      timeFormat = ISO_8601_TIME_FORMAT;
+    }
+    if (!timeZone) {
+      timeZone = defaultTimeZone;
+    }
+    return formatResponse(moment.tz(timeString, timeFormat, timeZone).valueOf());
+  },
 );
 mcpServer.registerTool(
   'ConvertTimestampToTimeString',
   {
-    description: 'convert timestamp to time string',
+    description: 'Convert timestamp to time string',
     inputSchema: {
-      timestamp: z.number().describe('timestamp in milliseconds to convert, e.g. 1717286400000'),
+      timestamp: z
+        .number()
+        .optional()
+        .describe('Timestamp in milliseconds to convert, e.g. 1717286400000. Default to use current timestamp.'),
       timeFormat: z
         .string()
         .optional()
-        .default('%Y-%m-%d %H:%M:%S')
-        .describe('time format to use, e.g. YYYY-MM-DD HH:mm:ss'),
-      timeZone: z.string().optional().default(TIMEZONE_SHANGHAI).describe('time zone to use, e.g. Asia/Shanghai'),
+        .default(ISO_8601_TIME_FORMAT)
+        .describe(
+          `Time format to use, e.g. ${ISO_8601_TIME_FORMAT}. Default to use ISO 8601 format (${ISO_8601_TIME_FORMAT}).`,
+        ),
+      timeZone: z
+        .string()
+        .optional()
+        .default(defaultTimeZone)
+        .describe('Time zone to use, e.g. Asia/Shanghai. Default to use system time zone.'),
     },
   },
-  ({ timestamp, timeFormat, timeZone }) => formatResponse(moment(timestamp).tz(timeZone).format(timeFormat)),
+  ({ timestamp, timeFormat, timeZone }) => {
+    if (!timestamp) {
+      timestamp = Date.now();
+    }
+    if (!timeFormat) {
+      timeFormat = ISO_8601_TIME_FORMAT;
+    }
+    if (!timeZone) {
+      timeZone = defaultTimeZone;
+    }
+    return formatResponse(moment(timestamp).tz(timeZone).format(timeFormat));
+  },
 );
 
 mcpServer.registerTool(
@@ -468,7 +516,7 @@ mcpServer.registerTool(
         },
       },
     });
-    clsClient.sdkVersion = 'cls-mcp-server';
+    clsClient.sdkVersion = capiClientVersion;
 
     try {
       const response = await clsClient.request('ChatCompletions', {
