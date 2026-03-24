@@ -2,11 +2,11 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-import { mcpServer } from '../index.js';
+import { createMcpServer } from '../index.js';
 
 async function createTestClient() {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await mcpServer.connect(serverTransport);
+  await createMcpServer().connect(serverTransport);
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   await client.connect(clientTransport);
   return { client, serverTransport };

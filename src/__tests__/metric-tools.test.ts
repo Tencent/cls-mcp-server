@@ -1,13 +1,12 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 
 const mockQueryMetric = vi.fn();
 const mockQueryRangeMetric = vi.fn();
 const mockDescribeTopics = vi.fn();
 
-let mcpServer: McpServer;
+let createMcpServer: typeof import('../index.js')['createMcpServer'];
 
 beforeAll(async () => {
   vi.doMock('tencentcloud-sdk-nodejs-cls', () => {
@@ -33,12 +32,12 @@ beforeAll(async () => {
   });
 
   const mod = await import('../index.js');
-  mcpServer = mod.mcpServer;
+  createMcpServer = mod.createMcpServer;
 });
 
 async function createTestClient() {
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await mcpServer.connect(serverTransport);
+  await createMcpServer().connect(serverTransport);
   const client = new Client({ name: 'test-client', version: '1.0.0' });
   await client.connect(clientTransport);
   return { client, serverTransport };
