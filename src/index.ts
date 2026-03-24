@@ -10,6 +10,8 @@ import moment from 'moment-timezone';
 import { cls } from 'tencentcloud-sdk-nodejs-cls';
 import {
   DescribeLogContextRequest,
+  QueryMetricRequest,
+  QueryRangeMetricRequest,
   SearchLogRequest,
 } from 'tencentcloud-sdk-nodejs-cls/tencentcloud/services/cls/v20201016/cls_models.js';
 import { region } from 'tencentcloud-sdk-nodejs-region';
@@ -173,7 +175,7 @@ mcpServer.registerTool(
         })),
       );
     } catch (e: any) {
-      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
     }
   },
 );
@@ -272,7 +274,7 @@ mcpServer.registerTool(
       const response = await clsClient.DescribeLogContext(capiParams);
       return formatResponse(response);
     } catch (e: any) {
-      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
     }
   },
 );
@@ -293,9 +295,14 @@ mcpServer.registerTool(
       Region: regionSchema,
       offset: z.number().optional().default(0).describe('Offset of the topic list, default 0'),
       limit: z.number().optional().default(20).describe('Limit of the topic list, default 20'),
+      bizType: z
+        .number()
+        .optional()
+        .default(0)
+        .describe('主题类型。0：日志主题（默认值）；1：指标主题。查询指标主题时需传入 1。'),
     },
   },
-  async ({ Region: regionFromAI, searchText, preciseSearch, offset = 0, limit = 20 }) => {
+  async ({ Region: regionFromAI, searchText, preciseSearch, offset = 0, limit = 20, bizType }) => {
     try {
       const region = regionFromAI;
       if (!region) {
@@ -330,6 +337,7 @@ mcpServer.registerTool(
         PreciseSearch: preciseSearch ? 1 : 0,
         Offset: offset,
         Limit: limit,
+        ...(bizType !== undefined && { BizType: bizType }),
       });
       const topics = response?.Topics?.map((topic) => ({
         TopicName: topic.TopicName,
@@ -338,7 +346,7 @@ mcpServer.registerTool(
       }));
       return formatResponse({ ...response, Topics: topics });
     } catch (e: any) {
-      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
     }
   },
 );
@@ -394,21 +402,17 @@ mcpServer.registerTool(
       }
       return formatResponse(foundRegionItem?.Region);
     } catch (e: any) {
-      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
     }
   },
 );
-
-/* mcpServer.registerTool('GetCurrentTimestamp', { description: 'get current timestamp in milliseconds' }, () =>
-  formatResponse(Date.now()),
-); */
 
 const systemTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 const defaultTimeZone = process.env.TZ || systemTimeZone || TIMEZONE_SHANGHAI;
 mcpServer.registerTool(
   'ConvertTimeStringToTimestamp',
   {
-    description: 'Convert time string to timestamp in milliseconds',
+    description: 'Convert time string to timestamp in milliseconds or seconds',
     inputSchema: {
       timeString: z
         .string()
@@ -429,19 +433,19 @@ mcpServer.registerTool(
         .describe(
           'Time zone to use, e.g. Asia/Shanghai. Must provide timeZone parameter if timeString format does not include timezone offset information.',
         ),
+      unit: z
+        .enum(['milliseconds', 'seconds'])
+        .optional()
+        .default('milliseconds')
+        .describe('Unit of the returned timestamp. "milliseconds" (default) or "seconds".'),
     },
   },
-  ({ timeString, timeFormat, timeZone }) => {
+  ({ timeString, timeFormat = ISO_8601_TIME_FORMAT, timeZone = defaultTimeZone, unit }) => {
     if (!timeString) {
       throw new Error('no timeString provided.');
     }
-    if (!timeFormat) {
-      timeFormat = ISO_8601_TIME_FORMAT;
-    }
-    if (!timeZone) {
-      timeZone = defaultTimeZone;
-    }
-    return formatResponse(moment.tz(timeString, timeFormat, timeZone).valueOf());
+    const ms = moment.tz(timeString, timeFormat, timeZone).valueOf();
+    return formatResponse(unit === 'seconds' ? Math.floor(ms / 1000) : ms);
   },
 );
 mcpServer.registerTool(
@@ -452,7 +456,14 @@ mcpServer.registerTool(
       timestamp: z
         .number()
         .optional()
-        .describe('Timestamp in milliseconds to convert, e.g. 1717286400000. Default to use current timestamp.'),
+        .describe(
+          'Timestamp to convert. Default to use current timestamp. Unit is determined by the "unit" parameter.',
+        ),
+      unit: z
+        .enum(['milliseconds', 'seconds'])
+        .optional()
+        .default('milliseconds')
+        .describe('Unit of the input timestamp. "milliseconds" (default) or "seconds".'),
       timeFormat: z
         .string()
         .optional()
@@ -467,15 +478,11 @@ mcpServer.registerTool(
         .describe('Time zone to use, e.g. Asia/Shanghai. Default to use system time zone.'),
     },
   },
-  ({ timestamp, timeFormat, timeZone }) => {
+  ({ timestamp, unit, timeFormat = ISO_8601_TIME_FORMAT, timeZone = defaultTimeZone }) => {
     if (!timestamp) {
       timestamp = Date.now();
-    }
-    if (!timeFormat) {
-      timeFormat = ISO_8601_TIME_FORMAT;
-    }
-    if (!timeZone) {
-      timeZone = defaultTimeZone;
+    } else if (unit === 'seconds') {
+      timestamp = timestamp * 1000;
     }
     return formatResponse(moment(timestamp).tz(timeZone).format(timeFormat));
   },
@@ -541,22 +548,144 @@ mcpServer.registerTool(
       });
       return formatResponse(response);
     } catch (e: any) {
-      return formatResponse({ message: e?.toString ? e.toString() : e?.message, stack: e?.stack, ...e }, true);
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
     }
   },
 );
 
+mcpServer.registerTool(
+  'QueryMetric',
+  {
+    description:
+      '针对指标主题，查询指定时刻指标的最新值（瞬时查询）。使用 PromQL 语法对指标主题中的数据进行查询。注意：若该时刻向前推5分钟内均无指标数据，则无相应查询结果。',
+    inputSchema: {
+      Region: regionSchema,
+      TopicId: z.string().describe('指标主题ID，通过 GetTopicInfoByName 工具并指定 bizType 为 1 获取指标主题 ID。'),
+      Query: z
+        .string()
+        .describe(
+          '查询语句，使用 PromQL 语法，如 access_evaluation_duration_bucket。参考文档：https://cloud.tencent.com/document/product/614/90334',
+        ),
+      Time: z
+        .number()
+        .optional()
+        .describe(
+          '查询时间，秒级 Unix 时间戳。为空时代表当前时间戳。如需指定时间，应当先调用 ConvertTimestampToTimeString 工具获取当前时间（不传 timestamp 参数即获取当前时间），基于时间字符串计算好目标时间后，再调用 ConvertTimeStringToTimestamp 工具并指定 unit 为 "seconds" 直接获取秒级时间戳传入。',
+        ),
+    },
+  },
+  async ({ Region: regionFromAI, TopicId, Query, Time }): Promise<CallToolResult> => {
+    try {
+      const region = regionFromAI;
+      if (!region) {
+        return formatResponse(noRegionProvidedErrorMessage, true);
+      }
+      const cloudApiBaseHost = process.env.TENCENTCLOUD_API_BASE_HOST || 'tencentcloudapi.com';
+      const clsClient = new ClsClient({
+        credential: {
+          secretId: process.env.TENCENTCLOUD_SECRET_ID,
+          secretKey: process.env.TENCENTCLOUD_SECRET_KEY,
+        },
+        region,
+        profile: {
+          language: 'zh-CN',
+          httpProfile: {
+            endpoint: `cls.${cloudApiBaseHost}`,
+          },
+        },
+      });
+      clsClient.sdkVersion = capiClientVersion;
+
+      const capiParams: QueryMetricRequest = {
+        TopicId,
+        Query,
+        ...(Time && { Time }),
+      };
+
+      const response = await clsClient.QueryMetric(capiParams);
+      return formatResponse(response);
+    } catch (e: any) {
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
+    }
+  },
+);
+
+mcpServer.registerTool(
+  'QueryRangeMetric',
+  {
+    description:
+      '针对指标主题，查询指定时间范围内指标的变化趋势（范围查询）。使用 PromQL 语法对指标主题中的数据进行时序查询，返回区间内的时序数据。',
+    inputSchema: {
+      Region: regionSchema,
+      TopicId: z.string().describe('指标主题ID，通过 GetTopicInfoByName 工具并指定 bizType 为 1 获取指标主题 ID。'),
+      Query: z
+        .string()
+        .describe(
+          '查询语句，使用 PromQL 语法，如 access_evaluation_duration_bucket。参考文档：https://cloud.tencent.com/document/product/614/90334',
+        ),
+      Start: z
+        .number()
+        .describe(
+          '查询起始时间，秒级 Unix 时间戳。应当先调用 ConvertTimestampToTimeString 工具获取当前时间（不传 timestamp 参数即获取当前时间），基于时间字符串计算好目标时间后，再调用 ConvertTimeStringToTimestamp 工具并指定 unit 为 "seconds" 直接获取秒级时间戳传入。End减去Start的时间范围建议不要过大，建议默认近15分钟，否则会导致返回过多数据，影响性能。',
+        ),
+      End: z
+        .number()
+        .describe(
+          '查询结束时间，秒级 Unix 时间戳。应当先调用 ConvertTimestampToTimeString 工具获取当前时间（不传 timestamp 参数即获取当前时间），基于时间字符串计算好目标时间后，再调用 ConvertTimeStringToTimestamp 工具并指定 unit 为 "seconds" 直接获取秒级时间戳传入。End减去Start的时间范围建议不要过大，建议默认近15分钟，否则会导致返回过多数据，影响性能。',
+        ),
+      Step: z.number().describe('查询时间间隔，单位秒。例如 60 表示每 60 秒一个数据点。'),
+    },
+  },
+  async ({ Region: regionFromAI, TopicId, Query, Start, End, Step }): Promise<CallToolResult> => {
+    try {
+      const region = regionFromAI;
+      if (!region) {
+        return formatResponse(noRegionProvidedErrorMessage, true);
+      }
+      const cloudApiBaseHost = process.env.TENCENTCLOUD_API_BASE_HOST || 'tencentcloudapi.com';
+      const clsClient = new ClsClient({
+        credential: {
+          secretId: process.env.TENCENTCLOUD_SECRET_ID,
+          secretKey: process.env.TENCENTCLOUD_SECRET_KEY,
+        },
+        region,
+        profile: {
+          language: 'zh-CN',
+          httpProfile: {
+            endpoint: `cls.${cloudApiBaseHost}`,
+          },
+        },
+      });
+      clsClient.sdkVersion = capiClientVersion;
+
+      const capiParams: QueryRangeMetricRequest = {
+        TopicId,
+        Query,
+        Start,
+        End,
+        Step,
+      };
+
+      const response = await clsClient.QueryRangeMetric(capiParams);
+      return formatResponse(response);
+    } catch (e: any) {
+      return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
+    }
+  },
+);
+
+export { mcpServer };
+
 // Common response formatting function
 const formatResponse = (data: any, isError?: boolean): CallToolResult => {
-  let text = '';
+  let text: string;
   try {
-    text = JSON.stringify(data);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (e) {
+    text = JSON.stringify(data) ?? String(data);
+  } catch {
     text = String(data);
   }
 
-  const maxLength = process.env.MAX_LENGTH ? Number(process.env.MAX_LENGTH) : null;
+  const maxLength = process.env.MAX_LENGTH ? Number(process.env.MAX_LENGTH) : undefined;
   if (maxLength && text.length > maxLength) {
     text = `${text.substring(0, maxLength)}...(truncated)`;
   }
@@ -565,7 +694,7 @@ const formatResponse = (data: any, isError?: boolean): CallToolResult => {
     content: [
       {
         type: 'text',
-        text: text || '',
+        text,
       },
     ],
     isError: !!isError,
@@ -610,4 +739,6 @@ function main() {
   }
 }
 
-main();
+if (process.env.NODE_ENV !== 'test') {
+  main();
+}

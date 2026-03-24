@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "main": "index.js",
   "files": [
     "dist"
@@ -13,7 +13,10 @@
     "lint": "eslint -c .eslintrc.js --fix --quiet src/**/*.ts src/**/*.tsx",
     "prepare": "husky",
     "publish:npm": "npm i && npm run build && npm publish --registry=\"https://registry.npmjs.org/\"",
-    "start:sse": "npm run build && node ./dist/index.js"
+    "start:sse": "npm run build && node ./dist/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [],
   "author": "",
@@ -39,6 +42,7 @@
     "@types/node": "^20.17.30",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
+    "@vitest/coverage-v8": "^4.1.1",
     "babel-eslint": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-tencent": "^1.1.2",
@@ -51,6 +55,7 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.0",
     "typescript": "^5.8.3",
+    "vitest": "^4.1.1",
     "webpack": "^5.104.1",
     "webpack-cli": "^5.1.4",
     "webpack-node-externals": "^3.0.0"
