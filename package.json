@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "0.3.4",
+  "version": "1.0.0",
   "main": "index.js",
   "files": [
     "dist"
@@ -28,9 +28,9 @@
     "express": "^5.1.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
-    "tencentcloud-sdk-nodejs-cls": "^4.1.158",
+    "tencentcloud-sdk-nodejs-cls": "^4.1.206",
     "tencentcloud-sdk-nodejs-common": "^4.1.122",
-    "tencentcloud-sdk-nodejs-region": "^4.1.137",
+    "tencentcloud-sdk-nodejs-region": "^4.1.179",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -66,7 +66,7 @@
     ]
   },
   "engines": {
-    "node": ">=16 <=22"
+    "node": ">=18 <=22"
   },
   "packageManager": "pnpm@9.12.3+sha512.cce0f9de9c5a7c95bef944169cc5dfe8741abfb145078c0d508b868056848a87c81e626246cb60967cbd7fd29a6c062ef73ff840d96b3c86c40ac92cf4a813ee"
 }

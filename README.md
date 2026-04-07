@@ -5,7 +5,7 @@
 
 **English** | [中文](README_ZH.md)
 
-Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol](https://modelcontextprotocol.io/). It enables large language models to directly access CLS capabilities such as log search and metric queries — no code required.
+Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol](https://modelcontextprotocol.io/). It enables large language models to directly access CLS capabilities such as log search, metric queries, and alarm management — no code required.
 
 > 📖 [Tencent Cloud Official Documentation](https://cloud.tencent.com/document/product/614/118699#90415b66-8edb-43a9-ad5a-c2b0a97f5eaf) | 🚀 [SSE Hosted Service on MCP Marketplace (Free)](https://cloud.tencent.com/developer/mcp/server/11710)
 
@@ -14,15 +14,29 @@ Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol
 ### Log Search
 | Tool | Description |
 | --- | --- |
-| `SearchLog` | Search logs based on query conditions |
+| `SearchLog` | Search logs based on query conditions (CQL syntax) |
 | `DescribeLogContext` | Retrieve the context (preceding and following N entries) of a specific log |
-| `TextToSearchLogQuery` | Convert natural language descriptions into CLS query statements |
+| `TextToSearchLogQuery` | Convert natural language descriptions into CLS query statements (CQL expert) |
+| `DescribeLogHistogram` | Get log distribution histogram data within a specified time range |
+| `DescribeIndex` | Get index configuration of a log topic (fields, full-text index, etc.) |
 
 ### Metric Query
 | Tool | Description |
 | --- | --- |
 | `QueryMetric` | Query real-time values of metric topics (PromQL syntax) |
 | `QueryRangeMetric` | Query metric data trends over a time range |
+
+### Alarm Management
+| Tool | Description |
+| --- | --- |
+| `DescribeAlarms` | List alarm policies with filtering support |
+| `DescribeAlertRecordHistory` | Query alarm trigger/recovery history records |
+| `GetAlarmLog` | Query alarm execution detail logs |
+| `DescribeAlarmNotices` | List notification channel groups (email, SMS, WeChat, etc.) |
+| `DescribeAlarmShields` | List alarm shield rules for a notification channel group |
+| `DescribeNoticeContents` | List notification content templates |
+| `DescribeWebCallbacks` | List webhook callback configurations |
+| `GetAlarmDetail` | Get alarm details by parsing alarm notification URL (supports short/long links) |
 
 ### Utilities
 | Tool | Description |
@@ -38,6 +52,19 @@ Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol
 - **Intelligent O&M Troubleshooting** — Integrate into O&M workflows to intelligently analyze system anomalies and quickly locate root causes.
 - **Automated Query Generation** — Automatically generate CLS query statements from natural language via `TextToSearchLogQuery`, enabling more precise and efficient log retrieval.
 - **Business Metric Monitoring** — Query and monitor real-time metric values and historical trends to keep track of system health.
+- **Alarm Management & Analysis** — View alarm policies, query alarm trigger/recovery history, and analyze alarm execution details to quickly understand alerting status.
+
+## Configuration
+
+| Parameter | Required | Default | Description |
+| --- | --- | --- | --- |
+| `TRANSPORT` | No | `stdio` | MCP transport mode: `stdio` or `sse` |
+| `TENCENTCLOUD_SECRET_ID` | Yes | - | Tencent Cloud API SecretId |
+| `TENCENTCLOUD_SECRET_KEY` | Yes | - | Tencent Cloud API SecretKey |
+| `TENCENTCLOUD_API_BASE_HOST` | No | `tencentcloudapi.com` | Tencent Cloud API base host. Use `internal.tencentcloudapi.com` in VPC intranet environments |
+| `MAX_LENGTH` | No | Unlimited | Max response length, used to fit model token limits |
+| `PORT` | No | `3000` | Server port for SSE mode |
+| `TZ` | No | System timezone | Timezone setting, e.g. `Asia/Shanghai`. Used by time conversion tools (`ConvertTimeStringToTimestamp`, `ConvertTimestampToTimeString`) |
 
 ## Getting Started
 
@@ -189,18 +216,6 @@ Then configure your MCP client:
   }
 }
 ```
-
-## Configuration
-
-| Parameter | Required | Default | Description |
-| --- | --- | --- | --- |
-| `TRANSPORT` | No | `stdio` | MCP transport mode: `stdio` or `sse` |
-| `TENCENTCLOUD_SECRET_ID` | Yes | - | Tencent Cloud API SecretId |
-| `TENCENTCLOUD_SECRET_KEY` | Yes | - | Tencent Cloud API SecretKey |
-| `TENCENTCLOUD_API_BASE_HOST` | No | `tencentcloudapi.com` | Tencent Cloud API base host |
-| `MAX_LENGTH` | No | Unlimited | Max response length, used to fit model token limits |
-| `PORT` | No | `3000` | Server port for SSE mode |
-| `TZ` | No | System timezone | Timezone setting, e.g. `Asia/Shanghai` |
 
 ## License
 
