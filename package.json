@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "files": [
     "dist"
@@ -23,6 +23,14 @@
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
+  "homepage": "https://github.com/Tencent/cls-mcp-server",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tencent/cls-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tencent/cls-mcp-server/issues"
+  },
   "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",
