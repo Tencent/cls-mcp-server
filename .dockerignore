@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+.git
+.idea
+.husky
+.env
+*.bak
+*.md
+LICENSE
+.eslintrc.js
+.eslintignore
+commitlint.config.js
+vitest.config.mts
+src/__tests__
