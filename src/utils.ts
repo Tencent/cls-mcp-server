@@ -33,7 +33,10 @@ export const formatResponse = (data: any, isError?: boolean): CallToolResult => 
 };
 
 /** Factory function to create a CLS API client for a given region */
-export function createClsClient(regionValue: string, options?: { reqTimeout?: number }) {
+export function createClsClient(
+  regionValue: string,
+  options?: { reqTimeout?: number },
+): InstanceType<typeof ClsClient> {
   const cloudApiBaseHost = process.env.TENCENTCLOUD_API_BASE_HOST || 'tencentcloudapi.com';
   const client = new ClsClient({
     credential: {

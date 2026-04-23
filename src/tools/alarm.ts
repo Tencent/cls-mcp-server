@@ -283,21 +283,41 @@ export function registerAlarmTools(mcpServer: McpServerInstance, createClsClient
     'GetAlarmLog',
     {
       description:
-        '获取 CLS 告警执行详情日志。查询指定时间范围内的告警策略执行详情，包括执行时间、结果、触发的日志内容等。\n\n' +
-        '查询语法说明：\n' +
-        '- * : 查询所有告警策略的执行详情\n' +
-        '- AlarmId:"alarm-xxx" : 查询指定告警策略的执行详情\n' +
-        '- AlarmName:"告警名称" : 按告警名称查询\n' +
-        '- 组合查询：AlarmId:"alarm-xxx" AND Status:"success"\n\n' +
-        '分页说明：首次不传 Context；若返回 ListOver 为 false，用返回的 Context 获取后续数据。\n\n' +
-        '返回信息包含：Results 列表（每条含 AlarmId、AlarmName、TopicId、TopicName、Trigger、TriggerCount、AlarmLevel、Status、CreateTime、Duration、NotifyStatus、Content）、Context（分页标识）、ListOver（是否查询完毕）。',
+        '获取 CLS 告警执行详情日志。查询指定时间范围内的告警策略执行详情，使用方式类似 SearchLog，通过 Query 参数传入检索分析语句。\n\n' +
+        '常用查询语句（直接作为 Query 参数传入）：\n\n' +
+        '1. 查询执行详情列表（最常用）：\n' +
+        '   NOT condition_evaluate_result:"Skip" AND condition_evaluate_result:[* TO *] | SELECT __TIMESTAMP__ as timestamp, alert_id, alert_name, monitored_object, topic_type, trigger, condition_evaluate_result, notification_send_result, notify_type, silent, record_id, record_group_id, summary_cn ORDER BY timestamp DESC LIMIT 1000\n\n' +
+        '2. 按告警策略过滤执行详情：\n' +
+        '   alert_id:"alarm-xxxx" AND NOT condition_evaluate_result:"Skip" AND condition_evaluate_result:[* TO *] | SELECT __TIMESTAMP__ as timestamp, alert_id, alert_name, monitored_object, trigger, condition_evaluate_result, notification_send_result, notify_type, silent, summary_cn ORDER BY timestamp DESC LIMIT 1000\n\n' +
+        '3. 按监控对象过滤执行详情：\n' +
+        '   monitored_object:"topic-id-xxxx" AND NOT condition_evaluate_result:"Skip" AND condition_evaluate_result:[* TO *] | SELECT __TIMESTAMP__ as timestamp, alert_id, alert_name, monitored_object, trigger, condition_evaluate_result, notification_send_result, notify_type, silent, summary_cn ORDER BY timestamp DESC LIMIT 1000\n\n' +
+        '4. 查询执行失败的记录：\n' +
+        '   condition_evaluate_result:"ProcessError" | SELECT __TIMESTAMP__ as timestamp, alert_id, alert_name, monitored_object, trigger, condition_evaluate_result, summary_cn ORDER BY timestamp DESC LIMIT 1000\n\n' +
+        '5. 查询通知失败的记录：\n' +
+        '   (notification_send_result:"SendFail" OR notification_send_result:"SendPartFail") | SELECT __TIMESTAMP__ as timestamp, alert_id, alert_name, monitored_object, notification_send_result, summary_cn ORDER BY timestamp DESC LIMIT 1000\n\n' +
+        '6. 统计各告警策略执行次数 Top 50：\n' +
+        "   NOT condition_evaluate_result:\"Skip\" AND condition_evaluate_result:[* TO *] | SELECT alert_id, alert_name, count(*) AS total, count_if(condition_evaluate_result='ProcessError') AS failure_count, count_if(notification_send_result!='NotSend') AS notify_total, count_if(notification_send_result='SendFail' OR notification_send_result='SendPartFail') AS notify_failure_count GROUP BY alert_id, alert_name ORDER BY total DESC LIMIT 50\n\n" +
+        '常用过滤字段及枚举值：\n' +
+        '- alert_id: 告警策略ID\n' +
+        '- monitored_object: 监控对象（日志主题ID）\n' +
+        '- condition_evaluate_result: QueryResultMatch(满足) / QueryResultUnmatch(不满足) / ProcessError(执行失败) / Skip(跳过)\n' +
+        '- notification_send_result: SendSuccess(成功) / SendFail(失败) / SendPartFail(部分失败) / NotSend(未发送)\n\n' +
+        '分页说明：首次不传 Context；若返回 ListOver 为 false，用返回的 Context 获取后续数据。' +
+        'Context 有效期 1 小时，翻页时请勿修改其他参数，总计最多获取 1 万条。' +
+        'SQL 分析结果的分页请使用 LIMIT/OFFSET。\n\n' +
+        '返回信息：SQL 分析时返回 AnalysisRecords；非 SQL 查询时返回 Results 列表（每条含 Time、LogJson）、Context（分页标识）、ListOver（是否查询完毕）。',
       inputSchema: {
         Region: regionSchema,
         From: z.number().describe(MS_TIMESTAMP_FROM_DESC),
         To: z.number().describe(MS_TIMESTAMP_TO_DESC),
-        Query: z.string().describe('查询过滤条件，支持 CLS 查询语法，如 * 表示查询所有。'),
+        Query: z
+          .string()
+          .describe('检索分析语句，支持 CLS 查询语法。使用 * 查询所有告警执行详情，支持管道符 | 进行 SQL 分析。'),
         Limit: z.number().optional().default(100).describe('单次返回条数，最大 1000，默认 100。'),
-        Context: z.string().optional().describe('上下文标识符，用于分页查询获取后续数据。'),
+        Context: z
+          .string()
+          .optional()
+          .describe('上下文标识符，用于分页查询获取后续数据。有效期 1 小时，翻页时请勿修改其他参数。'),
         Sort: z.string().optional().default('desc').describe('排序方式：asc（升序）、desc（降序），默认 desc。'),
       },
     },
@@ -310,6 +330,7 @@ export function registerAlarmTools(mcpServer: McpServerInstance, createClsClient
         const clsClient = createClsClient(region);
 
         const capiParams: GetAlarmLogRequest = {
+          UseNewAnalysis: true,
           From,
           To,
           Query,
@@ -319,7 +340,17 @@ export function registerAlarmTools(mcpServer: McpServerInstance, createClsClient
         };
 
         const response = await clsClient.GetAlarmLog(capiParams);
-        return formatResponse(response);
+        if (response.Analysis) {
+          return formatResponse(response.AnalysisRecords);
+        }
+        return formatResponse({
+          Results: response.Results?.map((result: any) => ({
+            Time: result.Time,
+            LogJson: result.LogJson,
+          })),
+          Context: response.Context,
+          ListOver: response.ListOver,
+        });
       } catch (e: any) {
         return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
       }

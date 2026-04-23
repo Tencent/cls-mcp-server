@@ -1,7 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { cls } from 'tencentcloud-sdk-nodejs-cls';
 import { z } from 'zod';
 
 export const CAPI_CLIENT_VERSION = `cls-mcp-server-${process.env.CLS_MCP_SERVER_VERSION}`;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const ClsClient = cls.v20201016.Client;
 
 export const regionSchema = z.string().describe('地域信息，必选，如：ap-guangzhou。');
 export const NO_REGION_PROVIDED_ERROR_MESSAGE =
@@ -62,7 +66,10 @@ export const SYSTEM_TIME_ZONE = Intl.DateTimeFormat().resolvedOptions().timeZone
 export const DEFAULT_TIME_ZONE = process.env.TZ || SYSTEM_TIME_ZONE || TIMEZONE_SHANGHAI;
 
 /** Type for the createClsClient factory function used by all tool registration functions */
-export type CreateClsClientFn = (regionValue: string, options?: { reqTimeout?: number }) => any;
+export type CreateClsClientFn = (
+  regionValue: string,
+  options?: { reqTimeout?: number },
+) => InstanceType<typeof ClsClient>;
 
 /** Type alias for McpServer used across tool registration functions */
 export type McpServerInstance = InstanceType<typeof McpServer>;
