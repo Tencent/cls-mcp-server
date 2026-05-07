@@ -58,12 +58,12 @@
 
 | 参数 | 必填 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `TRANSPORT` | 否 | `stdio` | MCP 传输方式，可选 `stdio` 或 `sse` |
+| `TRANSPORT` | 否 | `stdio` | MCP 传输方式，可选 `stdio`、`http`（Streamable HTTP）或 `sse` |
 | `TENCENTCLOUD_SECRET_ID` | 是 | - | 腾讯云 API 密钥 SecretId |
 | `TENCENTCLOUD_SECRET_KEY` | 是 | - | 腾讯云 API 密钥 SecretKey |
 | `TENCENTCLOUD_API_BASE_HOST` | 否 | `tencentcloudapi.com` | 腾讯云 API 基础域名。在腾讯云 VPC 内网环境中应配置为 `internal.tencentcloudapi.com` |
 | `MAX_LENGTH` | 否 | 不限制 | 返回内容最大长度，用于适配模型 Token 限制 |
-| `PORT` | 否 | `3000` | SSE 模式下的服务端口 |
+| `PORT` | 否 | `3000` | `http` / `sse` 模式下的服务端口 |
 | `TZ` | 否 | 系统时区 | 时区设置，如 `Asia/Shanghai`。在时间转换工具（`ConvertTimeStringToTimestamp`、`ConvertTimestampToTimeString`）中使用 |
 
 ## 快速开始
@@ -116,7 +116,46 @@
 
 > 如在腾讯云 VPC 内网环境中部署，可在 `env` 中添加 `"TENCENTCLOUD_API_BASE_HOST": "internal.tencentcloudapi.com"`。
 
-### 方式三：自建 SSE 模式
+### 方式三：自建 Streamable HTTP 模式
+
+> **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
+
+本服务以**无状态模式**实现——每次请求独立创建会话、完成即释放，适合容器化与水平扩容。
+
+1. 在当前目录创建 `.env` 文件：
+
+```bash
+TRANSPORT=http
+TENCENTCLOUD_SECRET_ID=<YOUR_SECRET_ID>
+TENCENTCLOUD_SECRET_KEY=<YOUR_SECRET_KEY>
+# 如在腾讯云 VPC 内网环境中部署，取消下行注释
+# TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com
+PORT=3000
+TZ=Asia/Shanghai
+```
+
+2. 启动服务：
+
+```bash
+npx -y cls-mcp-server@latest
+```
+
+3. 在 MCP 客户端中配置：
+
+```json
+{
+  "mcpServers": {
+    "cls-mcp-server": {
+      "name": "cls-mcp-server",
+      "type": "http",
+      "isActive": true,
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+### 方式四：自建 SSE 模式
 
 > **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -132,7 +171,7 @@ PORT=3000
 TZ=Asia/Shanghai
 ```
 
-2. 启动 SSE 服务：
+2. 启动服务：
 
 ```bash
 npx -y cls-mcp-server@latest
@@ -153,7 +192,7 @@ npx -y cls-mcp-server@latest
 }
 ```
 
-### 方式四：源码安装
+### 方式五：源码安装
 
 > **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -192,7 +231,40 @@ npm run build
 
 > 如在腾讯云 VPC 内网环境中部署，可在 `env` 中添加 `"TENCENTCLOUD_API_BASE_HOST": "internal.tencentcloudapi.com"`。
 
-3. **SSE 模式** — 在项目根目录创建 `.env` 文件：
+3. **Streamable HTTP 模式** — 在项目根目录创建 `.env` 文件：
+
+```bash
+TRANSPORT=http
+TENCENTCLOUD_SECRET_ID=<YOUR_SECRET_ID>
+TENCENTCLOUD_SECRET_KEY=<YOUR_SECRET_KEY>
+# 如在腾讯云 VPC 内网环境中部署，取消下行注释
+# TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com
+PORT=3000
+TZ=Asia/Shanghai
+```
+
+启动服务：
+
+```bash
+npm run start
+```
+
+然后在 MCP 客户端中配置：
+
+```json
+{
+  "mcpServers": {
+    "cls-mcp-server": {
+      "name": "cls-mcp-server",
+      "type": "http",
+      "isActive": true,
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+4. **SSE 模式** — 在项目根目录创建 `.env` 文件：
 
 ```bash
 TRANSPORT=sse
@@ -204,10 +276,10 @@ PORT=3000
 TZ=Asia/Shanghai
 ```
 
-启动 SSE 服务：
+启动服务：
 
 ```bash
-npm run start:sse
+npm run start
 ```
 
 然后在 MCP 客户端中配置：
@@ -225,7 +297,7 @@ npm run start:sse
 }
 ```
 
-### 方式五：Docker 部署
+### 方式六：Docker 部署
 
 > **前置条件**：安装 [Docker](https://docs.docker.com/get-docker/)，准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -235,7 +307,7 @@ npm run start:sse
 docker build -t cls-mcp-server .
 ```
 
-2. 启动容器（SSE 模式）：
+2. 启动容器（默认 Streamable HTTP 模式）：
 
 > 如在腾讯云 VPC 内网环境中部署，可添加 `-e TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com`。
 
@@ -248,6 +320,8 @@ docker run -d -p 3000:3000 \
   cls-mcp-server
 ```
 
+> 如需使用 SSE 传输，可追加 `-e TRANSPORT=sse`，客户端以 `"type": "sse"` 指向 `/sse`。
+
 3. 在 MCP 客户端中配置：
 
 ```json
@@ -255,9 +329,9 @@ docker run -d -p 3000:3000 \
   "mcpServers": {
     "cls-mcp-server": {
       "name": "cls-mcp-server",
-      "type": "sse",
+      "type": "http",
       "isActive": true,
-      "baseUrl": "http://localhost:3000/sse"
+      "url": "http://localhost:3000/mcp"
     }
   }
 }

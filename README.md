@@ -58,12 +58,12 @@ Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol
 
 | Parameter | Required | Default | Description |
 | --- | --- | --- | --- |
-| `TRANSPORT` | No | `stdio` | MCP transport mode: `stdio` or `sse` |
+| `TRANSPORT` | No | `stdio` | MCP transport mode: `stdio`, `http` (Streamable HTTP), or `sse` |
 | `TENCENTCLOUD_SECRET_ID` | Yes | - | Tencent Cloud API SecretId |
 | `TENCENTCLOUD_SECRET_KEY` | Yes | - | Tencent Cloud API SecretKey |
 | `TENCENTCLOUD_API_BASE_HOST` | No | `tencentcloudapi.com` | Tencent Cloud API base host. Use `internal.tencentcloudapi.com` in VPC intranet environments |
 | `MAX_LENGTH` | No | Unlimited | Max response length, used to fit model token limits |
-| `PORT` | No | `3000` | Server port for SSE mode |
+| `PORT` | No | `3000` | Server port for `http` / `sse` mode |
 | `TZ` | No | System timezone | Timezone setting, e.g. `Asia/Shanghai`. Used by time conversion tools (`ConvertTimeStringToTimestamp`, `ConvertTimestampToTimeString`) |
 
 ## Getting Started
@@ -99,7 +99,46 @@ Add the following to your MCP client's `mcpServers` configuration:
 
 > To deploy within a Tencent Cloud VPC, add `"TENCENTCLOUD_API_BASE_HOST": "internal.tencentcloudapi.com"` to `env`.
 
-### Option 2: Self-hosted SSE Mode
+### Option 2: Self-hosted Streamable HTTP Mode
+
+> **Prerequisites**: Install [Node.js](https://nodejs.org/) (LTS version recommended) and obtain Tencent Cloud [SecretId and SecretKey](https://console.cloud.tencent.com/cam/capi).
+
+This server runs Streamable HTTP in **stateless mode** — each request is independent, which makes it suitable for containerized deployments and horizontal scaling.
+
+1. Create a `.env` file in the current directory:
+
+```bash
+TRANSPORT=http
+TENCENTCLOUD_SECRET_ID=<YOUR_SECRET_ID>
+TENCENTCLOUD_SECRET_KEY=<YOUR_SECRET_KEY>
+# Uncomment the following line if deploying within a Tencent Cloud VPC
+# TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com
+PORT=3000
+TZ=Asia/Shanghai
+```
+
+2. Start the server:
+
+```bash
+npx -y cls-mcp-server@latest
+```
+
+3. Configure your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "cls-mcp-server": {
+      "name": "cls-mcp-server",
+      "type": "http",
+      "isActive": true,
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+### Option 3: Self-hosted SSE Mode
 
 > **Prerequisites**: Install [Node.js](https://nodejs.org/) (LTS version recommended) and obtain Tencent Cloud [SecretId and SecretKey](https://console.cloud.tencent.com/cam/capi).
 
@@ -115,7 +154,7 @@ PORT=3000
 TZ=Asia/Shanghai
 ```
 
-2. Start the SSE server:
+2. Start the server:
 
 ```bash
 npx -y cls-mcp-server@latest
@@ -136,7 +175,7 @@ npx -y cls-mcp-server@latest
 }
 ```
 
-### Option 3: Install from Source
+### Option 4: Install from Source
 
 > **Prerequisites**: Install [Node.js](https://nodejs.org/) (LTS version recommended) and obtain Tencent Cloud [SecretId and SecretKey](https://console.cloud.tencent.com/cam/capi).
 
@@ -175,7 +214,40 @@ npm run build
 
 > To deploy within a Tencent Cloud VPC, add `"TENCENTCLOUD_API_BASE_HOST": "internal.tencentcloudapi.com"` to `env`.
 
-3. **SSE Mode** — Create a `.env` file in the project root:
+3. **Streamable HTTP Mode** — Create a `.env` file in the project root:
+
+```bash
+TRANSPORT=http
+TENCENTCLOUD_SECRET_ID=<YOUR_SECRET_ID>
+TENCENTCLOUD_SECRET_KEY=<YOUR_SECRET_KEY>
+# Uncomment the following line if deploying within a Tencent Cloud VPC
+# TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com
+PORT=3000
+TZ=Asia/Shanghai
+```
+
+Start the server:
+
+```bash
+npm run start
+```
+
+Then configure your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "cls-mcp-server": {
+      "name": "cls-mcp-server",
+      "type": "http",
+      "isActive": true,
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}
+```
+
+4. **SSE Mode** — Create a `.env` file in the project root:
 
 ```bash
 TRANSPORT=sse
@@ -187,10 +259,10 @@ PORT=3000
 TZ=Asia/Shanghai
 ```
 
-Start the SSE server:
+Start the server:
 
 ```bash
-npm run start:sse
+npm run start
 ```
 
 Then configure your MCP client:
@@ -208,7 +280,7 @@ Then configure your MCP client:
 }
 ```
 
-### Option 4: Docker Deployment
+### Option 5: Docker Deployment
 
 > **Prerequisites**: Install [Docker](https://docs.docker.com/get-docker/) and obtain Tencent Cloud [SecretId and SecretKey](https://console.cloud.tencent.com/cam/capi).
 
@@ -218,7 +290,7 @@ Then configure your MCP client:
 docker build -t cls-mcp-server .
 ```
 
-2. Run the container (SSE mode):
+2. Run the container (Streamable HTTP mode, default):
 
 > To deploy within a Tencent Cloud VPC, add `-e TENCENTCLOUD_API_BASE_HOST=internal.tencentcloudapi.com`.
 
@@ -231,6 +303,8 @@ docker run -d -p 3000:3000 \
   cls-mcp-server
 ```
 
+> To run the SSE transport instead, add `-e TRANSPORT=sse` and point the client at `/sse` with `"type": "sse"`.
+
 3. Configure your MCP client:
 
 ```json
@@ -238,9 +312,9 @@ docker run -d -p 3000:3000 \
   "mcpServers": {
     "cls-mcp-server": {
       "name": "cls-mcp-server",
-      "type": "sse",
+      "type": "http",
       "isActive": true,
-      "baseUrl": "http://localhost:3000/sse"
+      "url": "http://localhost:3000/mcp"
     }
   }
 }

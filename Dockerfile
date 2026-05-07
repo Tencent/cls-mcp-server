@@ -30,7 +30,7 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 
 # Default environment variables
-ENV TRANSPORT=sse \
+ENV TRANSPORT=http \
     PORT=3000
 
 EXPOSE 3000
