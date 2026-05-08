@@ -430,6 +430,46 @@ describe('GetAlarmDetail', () => {
     expect((result.content as { text: string }[])[0].text).toContain('不允许的告警地址');
   });
 
+  // ==================== SSRF 回归：禁止把合法域名塞到 path / query / userinfo 绕过校验 ====================
+  it.each([
+    // 将合法域名塞入 path
+    'https://attacker.com/monitor.cls.tencentcs.com',
+    // 塞入 query
+    'https://attacker.com/?x=monitor.cls.tencentcs.com',
+    // 塞入 userinfo（hostname 实际为 attacker.com）
+    'https://monitor.cls.tencentcs.com@attacker.com/',
+    // 端口探测：内网地址 + 把合法域名塞入 path
+    'http://127.0.0.1:22/monitor.cls.tencentcs.com',
+    // 云元数据 + path 绕过
+    'http://169.254.169.254/latest/meta-data?x=monitor.cls.tencentcs.com',
+    // 子串拼接想绕过正则
+    'https://evilmonitor.cls.tencentcs.com/cls_no_login',
+    // 协议降级
+    'http://ap-guangzhou-monitor.cls.tencentcs.com/cls_no_login?RecordId=x',
+  ])('SSRF 绕过尝试 %s 必须被拒绝', async (url) => {
+    const result = await client.callTool({
+      name: 'GetAlarmDetail',
+      arguments: { AlarmDetailUrl: url },
+    });
+    expect(result.isError).toBe(true);
+    expect((result.content as { text: string }[])[0].text).toContain('不允许的告警地址');
+    // 关键：不允许发起网络请求
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('短链重定向到不允许的域名，必须拒绝', async () => {
+    mockFetch.mockResolvedValueOnce({
+      status: 302,
+      headers: new Map([['location', 'http://127.0.0.1:22/']]),
+    });
+    const result = await client.callTool({
+      name: 'GetAlarmDetail',
+      arguments: { AlarmDetailUrl: 'https://alarm.cls.tencentcs.com/WeNZ5sSP' },
+    });
+    expect(result.isError).toBe(true);
+    expect((result.content as { text: string }[])[0].text).toContain('不允许的地址');
+  });
+
   it('短链重定向 + API 调用成功，返回 Markdown 告警详情', async () => {
     // fetch：短链 302 重定向
     mockFetch.mockResolvedValueOnce({
@@ -437,7 +477,7 @@ describe('GetAlarmDetail', () => {
       headers: new Map([
         [
           'location',
-          'https://ap-guangzhou-open-monitor.cls.tencentcs.com/cls_no_login?action=GetAlertDetailPage#/alert?RecordId=test-record-123',
+          'https://ap-guangzhou-monitor.cls.tencentcs.com/cls_no_login?action=GetAlertDetailPage#/alert?RecordId=test-record-123',
         ],
       ]),
     });
@@ -498,7 +538,7 @@ describe('GetAlarmDetail', () => {
       headers: new Map([
         [
           'location',
-          'https://ap-guangzhou-open-monitor.cls.tencentcs.com/cls_no_login?action=GetAlertDetailPage#/alert?RecordId=empty-record',
+          'https://ap-guangzhou-monitor.cls.tencentcs.com/cls_no_login?action=GetAlertDetailPage#/alert?RecordId=empty-record',
         ],
       ]),
     });

@@ -25,13 +25,31 @@ import { formatResponse } from '../utils';
 // ==================== Helper functions for GetAlarmDetail ====================
 
 /**
- * 检查 URL 是否在允许的域名列表中
+ * 检查 URL 是否在允许的域名列表中。
+ *
+ * 注意：必须基于解析后的 hostname 做精确 / 正则匹配，不能对原始 URL 字符串做
+ * includes / startsWith 等模糊匹配，否则攻击者可将合法域名放入 URL 的 path /
+ * query / userinfo 等位置绕过校验（SSRF）。
  */
 function isAllowedAlarmUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  // 仅允许 https,防止降级到 http 后被中间人或内网明文服务利用
+  if (parsed.protocol !== 'https:') {
+    return false;
+  }
+
+  const hostname = parsed.hostname.toLowerCase();
   return (
-    url.startsWith('https://alarm.cls.tencentcs.com') ||
-    url.startsWith('https://mc.tencent.com') ||
-    url.includes('monitor.cls.tencentcs.com')
+    hostname === 'alarm.cls.tencentcs.com' ||
+    hostname === 'mc.tencent.com' ||
+    // 长链格式 host: {region}-monitor.cls.tencentcs.com 或 {region}-open-monitor.cls.tencentcs.com
+    /^[a-z0-9][a-z0-9-]*-monitor\.cls\.tencentcs\.com$/.test(hostname)
   );
 }
 
@@ -57,13 +75,16 @@ function tryExtractRecordId(url: string): string | null {
 }
 
 /**
- * 解析告警 URL，获取最终可解析的长链。
- * 如果 URL 已包含 RecordId（长链），直接返回，无需发起网络请求。
+ * 解析告警 URL,获取最终可解析的长链。
+ * 如果 URL 已包含 RecordId（长链）,直接返回,无需发起网络请求。
  * 仅当 URL 为短链（不含 RecordId）时才 fetch 跟踪重定向。
  * 这样兼容客户环境无法访问公网的场景。
+ *
+ * 注意：重定向得到的 location 必须重新走白名单校验,否则短链服务若被劫持/
+ * 返回任意 Location,会导致调用方被动发起 SSRF。
  */
 async function resolveRedirectUrl(url: string): Promise<string> {
-  // 长链已包含 RecordId，无需网络请求
+  // 长链已包含 RecordId,无需网络请求
   if (tryExtractRecordId(url)) {
     return url;
   }
@@ -73,10 +94,21 @@ async function resolveRedirectUrl(url: string): Promise<string> {
   if (response.status === 301 || response.status === 302) {
     const location = response.headers.get('location');
     if (location) {
-      return location;
+      // 相对重定向：以原 URL 为 base 补全
+      let resolvedLocation: string;
+      try {
+        resolvedLocation = new URL(location, url).toString();
+      } catch {
+        throw new Error('告警短链返回的重定向地址无效。');
+      }
+      // 重定向目标必须仍在白名单内,防止二次跳转绕过
+      if (!isAllowedAlarmUrl(resolvedLocation)) {
+        throw new Error('告警短链重定向到了不允许的地址。');
+      }
+      return resolvedLocation;
     }
   }
-  // 不是重定向，返回原 URL
+  // 不是重定向,返回原 URL
   return url;
 }
 
