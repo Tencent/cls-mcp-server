@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "index.js",
   "files": [
     "dist"
