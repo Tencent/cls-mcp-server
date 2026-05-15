@@ -7,7 +7,7 @@
 
 腾讯云日志服务（CLS）MCP Server，基于 [Model Context Protocol](https://modelcontextprotocol.io/) 实现，让大语言模型能够直接访问腾讯云 CLS 的日志检索、指标查询、告警管理等能力，无需编写代码即可完成日志分析。
 
-> 📖 [腾讯云官方文档](https://cloud.tencent.com/document/product/614/118699#90415b66-8edb-43a9-ad5a-c2b0a97f5eaf) | 🚀 [SSE 托管服务 - MCP 市场（免费使用）](https://cloud.tencent.com/developer/mcp/server/11710)
+> 📖 [腾讯云官方文档](https://cloud.tencent.com/document/product/614/118699#90415b66-8edb-43a9-ad5a-c2b0a97f5eaf)
 
 ## 核心能力
 
@@ -68,24 +68,7 @@
 
 ## 快速开始
 
-### 方式一：腾讯云 SSE 托管服务（无需本地环境）
-
-使用腾讯云 MCP 市场提供的 SSE 托管服务，**无需安装 Node.js 或任何本地依赖**。前往 [MCP 市场](https://cloud.tencent.com/developer/mcp/server/11710) 获取 SSE 端点地址，然后配置 MCP 客户端：
-
-```json
-{
-  "mcpServers": {
-    "cls-mcp-server": {
-      "name": "cls-mcp-server",
-      "type": "sse",
-      "isActive": true,
-      "baseUrl": "<从MCP市场获取的SSE端点地址>"
-    }
-  }
-}
-```
-
-### 方式二：NPX 启动（推荐的本地部署方式）
+### 方式一：NPX 启动（推荐的本地部署方式）
 
 在 MCP 客户端的 `mcpServers` 配置中添加：
 
@@ -116,7 +99,7 @@
 
 > 如在腾讯云 VPC 内网环境中部署，可在 `env` 中添加 `"TENCENTCLOUD_API_BASE_HOST": "internal.tencentcloudapi.com"`。
 
-### 方式三：自建 Streamable HTTP 模式
+### 方式二：自建 Streamable HTTP 模式
 
 > **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -155,7 +138,7 @@ npx -y cls-mcp-server@latest
 }
 ```
 
-### 方式四：自建 SSE 模式
+### 方式三：自建 SSE 模式
 
 > **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -192,7 +175,7 @@ npx -y cls-mcp-server@latest
 }
 ```
 
-### 方式五：源码安装
+### 方式四：源码安装
 
 > **前置条件**：安装 [Node.js](https://nodejs.org/)（推荐 LTS 版本），准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
@@ -297,7 +280,7 @@ npm run start
 }
 ```
 
-### 方式六：Docker 部署
+### 方式五：Docker 部署
 
 > **前置条件**：安装 [Docker](https://docs.docker.com/get-docker/)，准备腾讯云 [SecretId 和 SecretKey](https://console.cloud.tencent.com/cam/capi)。
 
