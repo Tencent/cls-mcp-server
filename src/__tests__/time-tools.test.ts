@@ -14,7 +14,13 @@ async function createTestClient() {
 
 function parseResult(result: Awaited<ReturnType<Client['callTool']>>) {
   const { text } = (result.content as { text: string }[])[0];
-  return JSON.parse(text);
+  // formatResponse 对字符串直接透传(不再二次 JSON.stringify),
+  // 对数字/对象仍走 JSON.stringify。这里做容错:  能 JSON.parse 就 parse,否则原样返回。
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
 }
 
 function getRawText(result: Awaited<ReturnType<Client['callTool']>>) {

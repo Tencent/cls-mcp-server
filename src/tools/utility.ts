@@ -8,9 +8,8 @@ import {
   DEFAULT_TIME_ZONE,
   NO_REGION_PROVIDED_ERROR_MESSAGE,
   regionSchema,
-  CAPI_CLIENT_VERSION,
 } from '../constants';
-import { RegionClient, formatResponse } from '../utils';
+import { extractRegionMainName, fetchClsRegionList, formatResponse } from '../utils';
 
 export function registerUtilityTools(mcpServer: McpServerInstance, createClsClient: CreateClsClientFn): void {
   mcpServer.registerTool(
@@ -83,38 +82,18 @@ export function registerUtilityTools(mcpServer: McpServerInstance, createClsClie
     },
     async ({ searchText, language }) => {
       try {
-        const cloudApiBaseHost = process.env.TENCENTCLOUD_API_BASE_HOST || 'tencentcloudapi.com';
-        const regionClient = new RegionClient({
-          credential: {
-            secretId: process.env.TENCENTCLOUD_SECRET_ID,
-            secretKey: process.env.TENCENTCLOUD_SECRET_KEY,
-          },
-          region: process.env.TENCENTCLOUD_REGION || 'ap-guangzhou',
-          profile: {
-            language: language as 'zh-CN' | 'en-US',
-            httpProfile: {
-              endpoint: `region.${cloudApiBaseHost}`,
-            },
-          },
-        });
-        regionClient.sdkVersion = CAPI_CLIENT_VERSION;
-
-        const response = await regionClient.DescribeRegions({
-          Product: 'cls',
-        });
-        // 优先尝试精确匹配
-        let foundRegionItem = response.RegionSet?.find((region: any) => {
-          const regionName = /[\u4e00-\u9fa5]+\(([\u4e00-\u9fa5]+)\)/.exec(region.RegionName)?.[1] || '';
-          return (
-            searchText.toUpperCase() === regionName.toUpperCase() ||
-            searchText.toUpperCase() === region.Region.toUpperCase()
-          );
+        const lang: 'zh-CN' | 'en-US' = language === 'en-US' ? 'en-US' : 'zh-CN';
+        // 通过 fetchClsRegionList 取地域列表,与 GetAlarmDetail 共享缓存,避免重复网络请求。
+        const regionSet = await fetchClsRegionList(lang);
+        const search = searchText.toUpperCase();
+        // 优先尝试精确匹配:括号内主名 或 region 代码
+        let foundRegionItem = regionSet.find((r) => {
+          const mainName = extractRegionMainName(r.RegionName).toUpperCase();
+          return search === mainName || search === r.Region.toUpperCase();
         });
         if (!foundRegionItem) {
-          foundRegionItem = response.RegionSet?.find(
-            (region: any) =>
-              region.RegionName?.toUpperCase()?.includes(searchText.toUpperCase()) ||
-              region.Region?.toUpperCase()?.includes(searchText.toUpperCase()),
+          foundRegionItem = regionSet.find(
+            (r) => r.RegionName?.toUpperCase()?.includes(search) || r.Region?.toUpperCase()?.includes(search),
           );
         }
         return formatResponse(foundRegionItem?.Region);
