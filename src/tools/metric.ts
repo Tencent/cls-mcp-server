@@ -21,7 +21,7 @@ export function registerMetricTools(mcpServer: McpServerInstance, createClsClien
         '- 参考文档：https://cloud.tencent.com/document/product/614/90334',
       inputSchema: {
         Region: regionSchema,
-        TopicId: z.string().describe('指标主题ID，通过 GetTopicInfoByName 工具并指定 bizType 为 1 获取指标主题 ID。'),
+        TopicId: z.string().describe('指标主题ID，通过 DescribeTopics 工具并指定 BizType 为 1 获取指标主题 ID。'),
         Query: z
           .string()
           .describe(
@@ -71,7 +71,7 @@ export function registerMetricTools(mcpServer: McpServerInstance, createClsClien
         '- 1 月内：step=86400（每天）',
       inputSchema: {
         Region: regionSchema,
-        TopicId: z.string().describe('指标主题ID，通过 GetTopicInfoByName 工具并指定 bizType 为 1 获取指标主题 ID。'),
+        TopicId: z.string().describe('指标主题ID，通过 DescribeTopics 工具并指定 BizType 为 1 获取指标主题 ID。'),
         Query: z
           .string()
           .describe(

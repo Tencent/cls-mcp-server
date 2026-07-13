@@ -41,7 +41,8 @@
 ### 辅助工具
 | 工具名称 | 描述 |
 | --- | --- |
-| `GetTopicInfoByName` | 按名称搜索日志主题或指标主题 |
+| `DescribeTopics` | 按名称、ID 或日志集搜索日志主题或指标主题 |
+| `DescribeLogsets` | 获取日志集列表，支持按名称/ID 过滤 |
 | `GetRegionCodeByName` | 按地区名称获取腾讯云区域代码 |
 | `ConvertTimeStringToTimestamp` | 时间字符串转换为时间戳 |
 | `ConvertTimestampToTimeString` | 时间戳转换为时间字符串 |

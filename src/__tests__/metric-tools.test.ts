@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 const mockQueryMetric = vi.fn();
 const mockQueryRangeMetric = vi.fn();
 const mockDescribeTopics = vi.fn();
+const mockDescribeLogsets = vi.fn();
 
 let createMcpServer: typeof import('../index.js')['createMcpServer'];
 
@@ -15,6 +16,7 @@ beforeAll(async () => {
         QueryMetric: mockQueryMetric,
         QueryRangeMetric: mockQueryRangeMetric,
         DescribeTopics: mockDescribeTopics,
+        DescribeLogsets: mockDescribeLogsets,
         sdkVersion: '',
       };
     };
@@ -226,14 +228,25 @@ describe('QueryRangeMetric', () => {
   });
 });
 
-describe('GetTopicInfoByName', () => {
+describe('DescribeTopics', () => {
   let client: Client;
   let serverTransport: InMemoryTransport;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     mockDescribeTopics.mockResolvedValue({
-      Topics: [{ TopicName: 'test-topic', TopicId: 'topic-123', Period: 30 }],
+      Topics: [
+        {
+          TopicName: 'test-topic',
+          TopicId: 'topic-123',
+          LogsetId: 'logset-456',
+          LogsetInfo: { LogsetName: 'test-logset' },
+          Period: 30,
+          StorageType: 'hot',
+          CreateTime: '2024-01-01 00:00:00',
+          Index: true,
+        },
+      ],
       TotalCount: 1,
       RequestId: 'req-6',
     });
@@ -241,79 +254,250 @@ describe('GetTopicInfoByName', () => {
   });
 
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await serverTransport.close();
   });
 
   it('不传 Region，返回 isError=true', async () => {
     const result = await client.callTool({
-      name: 'GetTopicInfoByName',
+      name: 'DescribeTopics',
       arguments: {},
     });
     expect(result.isError).toBe(true);
   });
 
-  it('不传 searchText，Filters 为空数组', async () => {
+  it('不传任何过滤条件，Filters 为空数组', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
+      name: 'DescribeTopics',
       arguments: { Region: 'ap-guangzhou' },
     });
     expect(mockDescribeTopics.mock.calls[0][0].Filters).toEqual([]);
   });
 
-  it('传入 searchText，Filters 包含 topicName 条件', async () => {
+  it('传入 TopicName，Filters 包含 topicName 条件', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
-      arguments: { Region: 'ap-guangzhou', searchText: 'my-topic' },
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', TopicName: 'my-topic' },
     });
     const params = mockDescribeTopics.mock.calls[0][0];
     expect(params.Filters).toEqual([{ Key: 'topicName', Values: ['my-topic'] }]);
   });
 
-  it('preciseSearch 默认为 false，PreciseSearch 透传为 0', async () => {
+  it('传入 LogsetName，Filters 包含 logsetName 条件', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', LogsetName: 'my-logset' },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Filters).toEqual([{ Key: 'logsetName', Values: ['my-logset'] }]);
+  });
+
+  it('传入 TopicId，Filters 包含 topicId 条件', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', TopicId: 'topic-xyz' },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Filters).toEqual([{ Key: 'topicId', Values: ['topic-xyz'] }]);
+  });
+
+  it('传入 LogsetId，Filters 包含 logsetId 条件', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', LogsetId: 'logset-xyz' },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Filters).toEqual([{ Key: 'logsetId', Values: ['logset-xyz'] }]);
+  });
+
+  it('传入多个过滤条件，Filters 包含全部条件', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', TopicName: 'my-topic', LogsetId: 'logset-xy' },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Filters).toEqual([
+      { Key: 'topicName', Values: ['my-topic'] },
+      { Key: 'logsetId', Values: ['logset-xy'] },
+    ]);
+  });
+
+  it('PreciseSearch 默认为 0', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
       arguments: { Region: 'ap-guangzhou' },
     });
     expect(mockDescribeTopics.mock.calls[0][0].PreciseSearch).toBe(0);
   });
 
-  it('preciseSearch=true，PreciseSearch 透传为 1', async () => {
+  it('PreciseSearch=3 精确匹配', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
-      arguments: { Region: 'ap-guangzhou', preciseSearch: true },
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', PreciseSearch: 3 },
     });
-    expect(mockDescribeTopics.mock.calls[0][0].PreciseSearch).toBe(1);
+    expect(mockDescribeTopics.mock.calls[0][0].PreciseSearch).toBe(3);
   });
 
-  it('bizType 默认为 0，BizType 透传为 0', async () => {
+  it('BizType 默认为 0', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
+      name: 'DescribeTopics',
       arguments: { Region: 'ap-guangzhou' },
     });
     expect(mockDescribeTopics.mock.calls[0][0].BizType).toBe(0);
   });
 
-  it('bizType=1，BizType 透传为 1', async () => {
+  it('BizType=1 查询指标主题', async () => {
     await client.callTool({
-      name: 'GetTopicInfoByName',
-      arguments: { Region: 'ap-guangzhou', bizType: 1 },
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', BizType: 1 },
     });
     expect(mockDescribeTopics.mock.calls[0][0].BizType).toBe(1);
   });
 
-  it('SDK 调用成功，返回 Topics 列表', async () => {
+  it('Offset/Limit 透传给 SDK', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou', Offset: 10, Limit: 50 },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Offset).toBe(10);
+    expect(params.Limit).toBe(50);
+  });
+
+  it('Offset/Limit 使用默认值', async () => {
+    await client.callTool({
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou' },
+    });
+    const params = mockDescribeTopics.mock.calls[0][0];
+    expect(params.Offset).toBe(0);
+    expect(params.Limit).toBe(20);
+  });
+
+  it('SDK 调用成功，返回精简 Topics 列表，包含 LogsetId 和 LogsetName', async () => {
     const result = await client.callTool({
-      name: 'GetTopicInfoByName',
-      arguments: { Region: 'ap-guangzhou', bizType: 1 },
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou' },
     });
     expect(result.isError).toBeFalsy();
-    expect(parseResult(result).Topics[0].TopicId).toBe('topic-123');
+    const parsed = parseResult(result);
+    expect(parsed.Topics[0].TopicId).toBe('topic-123');
+    expect(parsed.Topics[0].LogsetId).toBe('logset-456');
+    expect(parsed.Topics[0].LogsetName).toBe('test-logset');
+    expect(parsed.TotalCount).toBe(1);
+    expect(parsed.RequestId).toBe('req-6');
   });
 
   it('SDK 抛出异常，返回 isError=true', async () => {
     mockDescribeTopics.mockRejectedValue(new Error('Forbidden'));
     const result = await client.callTool({
-      name: 'GetTopicInfoByName',
+      name: 'DescribeTopics',
+      arguments: { Region: 'ap-guangzhou' },
+    });
+    expect(result.isError).toBe(true);
+  });
+});
+
+describe('DescribeLogsets', () => {
+  let client: Client;
+  let serverTransport: InMemoryTransport;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockDescribeLogsets.mockResolvedValue({
+      Logsets: [
+        {
+          LogsetId: 'logset-123',
+          LogsetName: 'test-logset',
+          CreateTime: '2024-01-01 00:00:00',
+          TopicCount: 3,
+          MetricTopicCount: 1,
+        },
+      ],
+      TotalCount: 1,
+      RequestId: 'req-7',
+    });
+    ({ client, serverTransport } = await createTestClient());
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await serverTransport.close();
+  });
+
+  it('不传 Region，返回 isError=true', async () => {
+    const result = await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: {},
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it('不传 Filters，Filters 为空数组', async () => {
+    await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou' },
+    });
+    const params = mockDescribeLogsets.mock.calls[0][0];
+    expect(params.Filters).toEqual([]);
+  });
+
+  it('传入 LogsetName，构建 logsetName 过滤条件', async () => {
+    await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou', LogsetName: 'my-logset' },
+    });
+    const params = mockDescribeLogsets.mock.calls[0][0];
+    expect(params.Filters).toEqual([{ Key: 'logsetName', Values: ['my-logset'] }]);
+  });
+
+  it('传入 LogsetId，构建 logsetId 过滤条件', async () => {
+    await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou', LogsetId: 'logset-123' },
+    });
+    const params = mockDescribeLogsets.mock.calls[0][0];
+    expect(params.Filters).toEqual([{ Key: 'logsetId', Values: ['logset-123'] }]);
+  });
+
+  it('Offset/Limit 透传给 SDK', async () => {
+    await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou', Offset: 5, Limit: 10 },
+    });
+    const params = mockDescribeLogsets.mock.calls[0][0];
+    expect(params.Offset).toBe(5);
+    expect(params.Limit).toBe(10);
+  });
+
+  it('Offset/Limit 使用默认值', async () => {
+    await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou' },
+    });
+    const params = mockDescribeLogsets.mock.calls[0][0];
+    expect(params.Offset).toBe(0);
+    expect(params.Limit).toBe(20);
+  });
+
+  it('SDK 调用成功，返回 Logsets 列表，包含 Region 字段', async () => {
+    const result = await client.callTool({
+      name: 'DescribeLogsets',
+      arguments: { Region: 'ap-guangzhou' },
+    });
+    expect(result.isError).toBeFalsy();
+    const parsed = parseResult(result);
+    expect(parsed.Logsets[0].LogsetId).toBe('logset-123');
+    expect(parsed.Logsets[0].LogsetName).toBe('test-logset');
+    expect(parsed.Logsets[0].Region).toBe('ap-guangzhou');
+    expect(parsed.Logsets[0].CreateTime).toBe('2024-01-01 00:00:00');
+    expect(parsed.TotalCount).toBe(1);
+  });
+
+  it('SDK 抛出异常，返回 isError=true', async () => {
+    mockDescribeLogsets.mockRejectedValue(new Error('Forbidden'));
+    const result = await client.callTool({
+      name: 'DescribeLogsets',
       arguments: { Region: 'ap-guangzhou' },
     });
     expect(result.isError).toBe(true);

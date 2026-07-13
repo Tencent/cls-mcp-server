@@ -22,8 +22,8 @@ export const filtersSchema = z
   .describe('过滤条件列表，每个过滤条件包含 Key 和 Values 字段。');
 
 export const paginationSchema = {
-  Offset: z.number().optional().default(0).describe('分页偏移量，从 0 开始，默认为 0'),
-  Limit: z.number().optional().default(20).describe('单页返回的数量，最大 100，默认 20'),
+  Offset: z.number().int().min(0).optional().default(0).describe('分页偏移量，从 0 开始，默认为 0'),
+  Limit: z.number().int().min(1).max(100).optional().default(20).describe('单页返回的数量，最大 100，默认 20'),
 };
 
 export const MS_TIMESTAMP_FROM_DESC =

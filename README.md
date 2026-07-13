@@ -41,7 +41,8 @@ Tencent Cloud Log Service (CLS) MCP Server, built on the [Model Context Protocol
 ### Utilities
 | Tool | Description |
 | --- | --- |
-| `GetTopicInfoByName` | Search log or metric topics by name |
+| `DescribeTopics` | Search log or metric topics by name, ID, or logset |
+| `DescribeLogsets` | List logset containers with filtering support |
 | `GetRegionCodeByName` | Get Tencent Cloud region codes by region name |
 | `ConvertTimeStringToTimestamp` | Convert time strings to timestamps |
 | `ConvertTimestampToTimeString` | Convert timestamps to time strings |

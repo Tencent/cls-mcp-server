@@ -1,3 +1,4 @@
+import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import moment from 'moment-timezone';
 import { z } from 'zod';
 
@@ -7,32 +8,77 @@ import {
   McpServerInstance,
   DEFAULT_TIME_ZONE,
   NO_REGION_PROVIDED_ERROR_MESSAGE,
+  paginationSchema,
   regionSchema,
 } from '../constants';
 import { extractRegionMainName, fetchClsRegionList, formatResponse } from '../utils';
 
+/**
+ * 将非空的字符串过滤条件加入 Filters 数组。
+ * 同时排除 null / undefined / 空字符串，避免向云 API 发送无效过滤条件。
+ */
+function addStringFilter(filters: { Key: string; Values: string[] }[], key: string, value: string | undefined): void {
+  if (value != null && value !== '') {
+    filters.push({ Key: key, Values: [value] });
+  }
+}
+
 export function registerUtilityTools(mcpServer: McpServerInstance, createClsClient: CreateClsClientFn): void {
   mcpServer.registerTool(
-    'GetTopicInfoByName',
+    'DescribeTopics',
     {
-      description: '按名称搜索日志主题或指标主题信息，返回主题 ID、名称、保留周期等信息。',
+      description:
+        '按名称搜索日志主题或指标主题信息，返回主题 ID、名称、保留周期等信息。\n\n' +
+        '支持的过滤条件：\n' +
+        '- TopicId：按主题 ID 过滤（精确匹配）\n' +
+        '- TopicName：按主题名称过滤（默认模糊匹配）\n' +
+        '- LogsetId：按日志集 ID 过滤（精确匹配）\n' +
+        '- LogsetName：按日志集名称过滤（默认模糊匹配）\n\n' +
+        'PreciseSearch 控制模糊/精确匹配：0=两者均模糊（默认），1=TopicName 精确，2=LogsetName 精确，3=两者均精确。\n\n' +
+        '返回信息包含：TopicId、TopicName、LogsetId、LogsetName、Region、StorageType（hot/cold）、Period。',
       inputSchema: {
-        searchText: z.string().optional().describe('搜索日志主题名称。不传则返回所有主题。'),
-        preciseSearch: z
-          .boolean()
-          .default(false)
-          .describe('是否精确匹配（true）或模糊匹配（false），默认 false。推荐使用模糊匹配。'),
         Region: regionSchema,
-        offset: z.number().optional().default(0).describe('分页偏移量，默认 0'),
-        limit: z.number().optional().default(20).describe('单页返回数量，默认 20'),
-        bizType: z
+        TopicId: z.string().optional().describe('按主题 ID 过滤（精确匹配）。'),
+        TopicName: z
+          .string()
+          .optional()
+          .describe('按主题名称过滤。默认模糊匹配；设置 PreciseSearch=1 或 3 可切换为精确匹配。'),
+        LogsetId: z.string().optional().describe('按日志集 ID 过滤（精确匹配）。'),
+        LogsetName: z
+          .string()
+          .optional()
+          .describe('按日志集名称过滤。默认模糊匹配；设置 PreciseSearch=2 或 3 可切换为精确匹配。'),
+        PreciseSearch: z
           .number()
+          .int()
+          .min(0)
+          .max(3)
+          .optional()
+          .default(0)
+          .describe(
+            '控制 TopicName / LogsetName 的精确/模糊匹配：0=两者均模糊（默认），1=TopicName 精确，2=LogsetName 精确，3=两者均精确。对 TopicId / LogsetId 无效（始终精确匹配）。',
+          ),
+        ...paginationSchema,
+        BizType: z
+          .number()
+          .int()
+          .refine((v) => v === 0 || v === 1, { message: 'BizType 必须为 0（日志主题）或 1（指标主题）' })
           .optional()
           .default(0)
           .describe('主题类型。0：日志主题（默认值）；1：指标主题。查询指标主题时需传入 1。'),
       },
     },
-    async ({ Region: regionFromAI, searchText, preciseSearch, offset = 0, limit = 20, bizType }) => {
+    async ({
+      Region: regionFromAI,
+      TopicId,
+      TopicName,
+      LogsetId,
+      LogsetName,
+      PreciseSearch,
+      Offset,
+      Limit,
+      BizType,
+    }): Promise<CallToolResult> => {
       try {
         const region = regionFromAI;
         if (!region) {
@@ -41,26 +87,80 @@ export function registerUtilityTools(mcpServer: McpServerInstance, createClsClie
 
         const clsClient = createClsClient(region);
 
+        const filters: { Key: string; Values: string[] }[] = [];
+        addStringFilter(filters, 'topicId', TopicId);
+        addStringFilter(filters, 'topicName', TopicName);
+        addStringFilter(filters, 'logsetId', LogsetId);
+        addStringFilter(filters, 'logsetName', LogsetName);
+
         const response = await clsClient.DescribeTopics({
-          Filters: searchText
-            ? [
-                {
-                  Key: 'topicName',
-                  Values: [searchText],
-                },
-              ]
-            : [],
-          PreciseSearch: preciseSearch ? 1 : 0,
-          Offset: offset,
-          Limit: limit,
-          ...(bizType !== undefined && { BizType: bizType }),
+          Filters: filters,
+          PreciseSearch,
+          Offset,
+          Limit,
+          BizType,
         });
-        const topics = response?.Topics?.map((topic: any) => ({
-          TopicName: topic.TopicName,
-          TopicId: topic.TopicId,
-          Period: topic.Period,
+
+        // 只回精简的展示字段，屏蔽 AssumerUin/RoleName/Tags 等模型用不上的元信息，控制 tool_result 体积。
+        // 注意：SDK 的 TopicInfo 类型未声明 LogsetInfo 字段，但云 API 实际会返回该嵌套对象，
+        // 因此使用 any 类型断言访问，避免 @ts-ignore 在未来 SDK 类型更新时静默掩盖字段名变更。
+        const topics = (response?.Topics || []).map((t) => ({
+          TopicId: t.TopicId,
+          TopicName: t.TopicName,
+          LogsetId: t.LogsetId,
+          LogsetName: (t as any).LogsetInfo?.LogsetName || undefined,
+          Region: region,
+          StorageType: t.StorageType,
+          Period: t.Period,
         }));
-        return formatResponse({ ...response, Topics: topics });
+        return formatResponse({ Topics: topics, TotalCount: response?.TotalCount, RequestId: response?.RequestId });
+      } catch (e: any) {
+        return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
+      }
+    },
+  );
+
+  mcpServer.registerTool(
+    'DescribeLogsets',
+    {
+      description:
+        '获取 CLS 日志集列表。查询指定地域下的日志集，支持按日志集名称、日志集 ID 过滤。\n\n' +
+        '日志集是日志主题的容器，用于区分不同项目。当多个项目存在同名日志主题时，可通过日志集区分。\n\n' +
+        '支持的过滤条件：\n' +
+        '- LogsetName：按日志集名称过滤（模糊匹配）\n' +
+        '- LogsetId：按日志集 ID 过滤（精确匹配）\n' +
+        '返回信息包含：LogsetId（日志集 ID）、LogsetName（日志集名称）、Region（地域）、CreateTime（创建时间）、TopicCount（日志主题数目）、MetricTopicCount（指标主题数目）。',
+      inputSchema: {
+        Region: regionSchema,
+        LogsetId: z.string().optional().describe('按日志集 ID 过滤（精确匹配）。'),
+        LogsetName: z.string().optional().describe('按日志集名称过滤。模糊匹配。'),
+        ...paginationSchema,
+      },
+    },
+    async ({ Region: regionFromAI, LogsetId, LogsetName, Offset, Limit }): Promise<CallToolResult> => {
+      try {
+        const region = regionFromAI;
+        if (!region) {
+          return formatResponse(NO_REGION_PROVIDED_ERROR_MESSAGE, true);
+        }
+        const clsClient = createClsClient(region);
+        const filters: { Key: string; Values: string[] }[] = [];
+        addStringFilter(filters, 'logsetId', LogsetId);
+        addStringFilter(filters, 'logsetName', LogsetName);
+        const response = await clsClient.DescribeLogsets({
+          Filters: filters,
+          Offset,
+          Limit,
+        });
+        const logsets = (response?.Logsets || []).map((l) => ({
+          LogsetId: l.LogsetId,
+          LogsetName: l.LogsetName,
+          Region: region,
+          CreateTime: l.CreateTime,
+          TopicCount: l.TopicCount,
+          MetricTopicCount: l.MetricTopicCount,
+        }));
+        return formatResponse({ Logsets: logsets, TotalCount: response?.TotalCount, RequestId: response?.RequestId });
       } catch (e: any) {
         return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
       }
