@@ -21,6 +21,7 @@ beforeAll(async () => {
         SearchLog: vi.fn(),
         DescribeLogContext: vi.fn(),
         DescribeTopics: vi.fn(),
+        DescribeLogsets: vi.fn(),
         QueryMetric: vi.fn(),
         QueryRangeMetric: vi.fn(),
         DescribeAlarms: vi.fn(),
