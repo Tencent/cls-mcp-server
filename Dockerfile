@@ -6,6 +6,9 @@ WORKDIR /app
 # Copy dependency files first for better layer caching
 COPY package.json package-lock.json ./
 
+# Use Tencent npm mirror
+RUN npm config set registry "http://mirrors.tencent.com/npm/" --global
+
 # Install all dependencies (including devDependencies for building)
 # Ignore prepare script to skip husky install in Docker
 RUN npm ci --ignore-scripts
@@ -24,7 +27,10 @@ WORKDIR /app
 
 # Copy dependency files and install production dependencies only
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+# Use Tencent npm mirror
+RUN npm config set registry "http://mirrors.tencent.com/npm/" --global && \
+    npm ci --omit=dev --ignore-scripts && \
+    npm cache clean --force
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/dist ./dist
