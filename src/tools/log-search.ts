@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import moment from 'moment-timezone';
 import {
@@ -219,7 +221,10 @@ export function registerLogSearchTools(mcpServer: McpServerInstance, createClsCl
         '- 简单过滤："查询 ERROR 级别日志" → level:\'error\'\n' +
         '- 字段统计："查看 IP 分布" → * | SELECT IP, count(*) AS cnt GROUP BY IP ORDER BY cnt DESC\n' +
         '- 复杂聚合："按小时统计各状态码数量" → * | SELECT histogram(__TIMESTAMP__, INTERVAL 1 HOUR) AS hour, status_code, count(*) GROUP BY hour, status_code\n' +
-        '- 多维分析："按地域和业务分组，统计错误数>100的" → level:ERROR | SELECT region, service, count(*) AS error_count GROUP BY region, service HAVING error_count > 100',
+        '- 多维分析："按地域和业务分组，统计错误数>100的" → level:ERROR | SELECT region, service, count(*) AS error_count GROUP BY region, service HAVING error_count > 100\n\n' +
+        '响应格式说明：\n' +
+        '返回文本第一行为 "SessionId: xxx"，是本次调用的会话标识，后续连续调用本工具时请作为 SessionId 参数传入\n' +
+        '第二行以 "Content: " 开头，其后为本工具返回的正文，从中提取生成的 CQL 语句',
       inputSchema: {
         Text: z
           .string()
@@ -228,13 +233,26 @@ export function registerLogSearchTools(mcpServer: McpServerInstance, createClsCl
           ),
         Region: regionSchema,
         TopicId: z.string().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
+        SessionId: z
+          .string()
+          .optional()
+          .describe(
+            '会话标识，可选。用于后端基于历史查询上下文生成更准确的检索语句，建议同一用户连续提问时保持不变：\n' +
+              '1. 若 MCP 客户端自身维护了会话 ID，首次调用即可直接传入该 ID\n' +
+              '2. 否则请携带上一次工具响应中返回的 SessionId\n' +
+              '3. 均未传入时服务端将自动生成并在响应中返回',
+          ),
       },
     },
-    async ({ Text, TopicId, Region: regionFromAI }) => {
+    async ({ Text, TopicId, SessionId, Region: regionFromAI }) => {
       const region = regionFromAI;
       if (!region) {
         return formatResponse(NO_REGION_PROVIDED_ERROR_MESSAGE, true);
       }
+
+      // SessionId 用于后端检索历史查询上下文以生成更准确的推荐;未传入时自动生成并在响应中返回,
+      // 便于模型在后续连续调用中携带,保持会话上下文连续
+      const sessionId = SessionId || randomUUID();
 
       const clsClient = createClsClient(region, { reqTimeout: 300 });
 
@@ -256,10 +274,27 @@ export function registerLogSearchTools(mcpServer: McpServerInstance, createClsCl
               Key: 'topic_region',
               Value: region,
             },
+            {
+              Key: 'session_id',
+              Value: sessionId,
+            },
           ],
           Stream: false,
         });
-        return formatResponse(response);
+        const formatted = formatResponse(response);
+        // SessionId / Content 以带标签的行前缀形式合并进首个 content 项,
+        // 避免新增 content 项带来的客户端兼容性问题
+        const [firstContent, ...restContent] = formatted.content as { type: 'text'; text: string }[];
+        return {
+          ...formatted,
+          content: [
+            {
+              type: 'text' as const,
+              text: `SessionId: ${sessionId}\nContent: ${firstContent?.text ?? ''}`,
+            },
+            ...restContent,
+          ],
+        };
       } catch (e: any) {
         return formatResponse({ message: String(e), stack: e?.stack, ...e }, true);
       }

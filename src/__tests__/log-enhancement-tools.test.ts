@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 
 const mockDescribeIndex = vi.fn();
 const mockDescribeLogHistogram = vi.fn();
+const mockChatCompletions = vi.fn();
 
 let createMcpServer: typeof import('../index.js')['createMcpServer'];
 
@@ -13,6 +14,7 @@ beforeAll(async () => {
       return {
         DescribeIndex: mockDescribeIndex,
         DescribeLogHistogram: mockDescribeLogHistogram,
+        ChatCompletions: mockChatCompletions,
         SearchLog: vi.fn(),
         DescribeLogContext: vi.fn(),
         DescribeTopics: vi.fn(),
@@ -235,6 +237,119 @@ describe('DescribeLogHistogram', () => {
         To: 1704042000000,
         Query: '*',
       },
+    });
+    expect(result.isError).toBe(true);
+  });
+});
+
+// ==================== TextToSearchLogQuery ====================
+
+/** 从 TextToSearchLogQuery 响应文本中提取首行 SessionId */
+function extractSessionId(result: Awaited<ReturnType<Client['callTool']>>): string {
+  const { text } = (result.content as { text: string }[])[0];
+  const m = /^SessionId: (.+)\n/.exec(text);
+  expect(m).not.toBeNull();
+  return m![1];
+}
+
+/** 从 TextToSearchLogQuery 响应文本中提取 Content: 之后的正文 JSON */
+function extractContentJson(result: Awaited<ReturnType<Client['callTool']>>): any {
+  const { text } = (result.content as { text: string }[])[0];
+  const idx = text.indexOf('Content: ');
+  expect(idx).toBeGreaterThan(-1);
+  return JSON.parse(text.slice(idx + 'Content: '.length));
+}
+
+describe('TextToSearchLogQuery', () => {
+  let client: Client;
+  let serverTransport: InMemoryTransport;
+
+  const baseArgs = {
+    Text: '查询 ERROR 级别日志',
+    Region: 'ap-guangzhou',
+    TopicId: 'topic-123',
+  };
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockChatCompletions.mockResolvedValue({
+      RequestId: 'req-1',
+      Choices: [{ Message: { Content: 'level:error', Role: 'assistant' }, FinishReason: 'stop' }],
+    });
+    ({ client, serverTransport } = await createTestClient());
+  });
+
+  afterEach(async () => {
+    await serverTransport.close();
+  });
+
+  it('不传 Region，返回 isError=true', async () => {
+    const result = await client.callTool({
+      name: 'TextToSearchLogQuery',
+      arguments: { Text: 'x', TopicId: 'topic-123' },
+    });
+    expect(result.isError).toBe(true);
+  });
+
+  it('必填参数正确透传给 ChatCompletions', async () => {
+    await client.callTool({ name: 'TextToSearchLogQuery', arguments: baseArgs });
+    expect(mockChatCompletions).toHaveBeenCalledOnce();
+    const req = mockChatCompletions.mock.calls[0][0];
+    expect(req.Model).toBe('text2sql');
+    expect(req.Messages).toEqual([{ Content: baseArgs.Text, Role: 'user' }]);
+    expect(req.Stream).toBe(false);
+    const metadata: Record<string, string> = Object.fromEntries(
+      (req.Metadata as { Key: string; Value: string }[]).map((m) => [m.Key, m.Value]),
+    );
+    expect(metadata.topic_id).toBe('topic-123');
+    expect(metadata.topic_region).toBe('ap-guangzhou');
+  });
+
+  it('传入 SessionId 时透传给 Metadata，响应原样返回该 SessionId', async () => {
+    const result = await client.callTool({
+      name: 'TextToSearchLogQuery',
+      arguments: { ...baseArgs, SessionId: 'client-session-abc' },
+    });
+    const metadata: Record<string, string> = Object.fromEntries(
+      (mockChatCompletions.mock.calls[0][0].Metadata as { Key: string; Value: string }[]).map((m) => [m.Key, m.Value]),
+    );
+    expect(metadata.session_id).toBe('client-session-abc');
+    expect(extractSessionId(result)).toBe('client-session-abc');
+  });
+
+  it('未传 SessionId 时自动生成 UUID，传入 Metadata 并在响应首行返回', async () => {
+    const result = await client.callTool({ name: 'TextToSearchLogQuery', arguments: baseArgs });
+    const metadata: Record<string, string> = Object.fromEntries(
+      (mockChatCompletions.mock.calls[0][0].Metadata as { Key: string; Value: string }[]).map((m) => [m.Key, m.Value]),
+    );
+    const returnedSessionId = extractSessionId(result);
+    // Metadata 与响应中返回的是同一个自动生成的 SessionId
+    expect(metadata.session_id).toBe(returnedSessionId);
+    // UUID v4 格式校验
+    expect(returnedSessionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
+  it('响应 content 为单个 text 项，SessionId 与 Content 标签行后跟原始结果', async () => {
+    const result = await client.callTool({
+      name: 'TextToSearchLogQuery',
+      arguments: { ...baseArgs, SessionId: 'sess-1' },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(result.content).toHaveLength(1);
+    const { text } = (result.content as { text: string }[])[0];
+    expect(text.split('\n')[0]).toBe('SessionId: sess-1');
+    expect(text).toContain('\nContent: ');
+    // Content 标签之后是原始 ChatCompletions 响应 JSON
+    const data = extractContentJson(result);
+    expect(data.RequestId).toBe('req-1');
+    expect(data.Choices[0].Message.Content).toBe('level:error');
+  });
+
+  it('SDK 抛出异常，返回 isError=true', async () => {
+    mockChatCompletions.mockRejectedValue(new Error('InternalError'));
+    const result = await client.callTool({
+      name: 'TextToSearchLogQuery',
+      arguments: { ...baseArgs, SessionId: 'sess-1' },
     });
     expect(result.isError).toBe(true);
   });
