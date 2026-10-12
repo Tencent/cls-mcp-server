@@ -287,7 +287,11 @@ function main() {
     server
       .connect(stdioTransport)
       .then(() => {
-        console.log('Started cls-mcp-server in stdio transport.');
+        // MCP stdio 规范要求 stdout 只能承载 JSON-RPC 消息，日志必须走 stderr：
+        // https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+        // (官方参考实现 modelcontextprotocol/servers 的 stdio 启动横幅同样使用 console.error)
+        // 这里是 info 级提示而非错误，console.error 仅为写入 stderr 的惯用写法。
+        console.error('[MCP] Started cls-mcp-server in stdio transport.');
       })
       .catch((error) => {
         console.error('Fatal error in main():', error);
