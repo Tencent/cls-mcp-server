@@ -553,7 +553,7 @@ function formatAlarmDetail(record: any, regionDisplay?: string): string {
           if (row && Array.isArray(row.Data)) {
             const out: Record<string, any> = {};
             for (const kv of row.Data) {
-              if (kv && kv.Key !== undefined) out[String(kv.Key)] = kv.Value;
+              if (kv?.Key !== undefined) out[String(kv.Key)] = kv.Value;
             }
             return out;
           }
@@ -670,7 +670,7 @@ export function registerAlarmTools(mcpServer: McpServerInstance, createClsClient
         '- name: 按告警策略名称过滤\n' +
         '- alarmId: 按告警策略 ID 过滤\n' +
         '- topicId: 按监控对象的日志主题 ID 过滤\n' +
-        `- enable: 按启用状态过滤（1=启用，0=禁用），如 [{Key: 'enable', Values: ['1']}]`,
+        "- enable: 按启用状态过滤（1=启用，0=禁用），如 [{Key: 'enable', Values: ['1']}]",
       inputSchema: {
         Region: regionSchema,
         Filters: filtersSchema,
@@ -867,9 +867,9 @@ export function registerAlarmTools(mcpServer: McpServerInstance, createClsClient
         '2. 查询当前生效的屏蔽规则（按状态过滤）\n' +
         '3. 审计和管理告警屏蔽配置\n\n' +
         '支持的过滤条件（Filters 参数）：\n' +
-        `- shieldId: 按屏蔽规则 ID 过滤，如 [{Key: 'shieldId', Values: ['shield-xxx']}]\n` +
-        `- name: 按屏蔽规则名称过滤，如 [{Key: 'name', Values: ['维护屏蔽']}]\n` +
-        `- status: 按状态过滤（enabled=启用，disabled=禁用），如 [{Key: 'status', Values: ['enabled']}]`,
+        "- shieldId: 按屏蔽规则 ID 过滤，如 [{Key: 'shieldId', Values: ['shield-xxx']}]\n" +
+        "- name: 按屏蔽规则名称过滤，如 [{Key: 'name', Values: ['维护屏蔽']}]\n" +
+        "- status: 按状态过滤（enabled=启用，disabled=禁用），如 [{Key: 'status', Values: ['enabled']}]",
       inputSchema: {
         Region: regionSchema,
         AlarmNoticeId: z.string().describe('通知渠道组 ID，必填参数。可通过 DescribeAlarmNotices 工具获取。'),
