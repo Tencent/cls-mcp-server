@@ -41,7 +41,7 @@
     "tencentcloud-sdk-nodejs-cls": "^4.1.319",
     "tencentcloud-sdk-nodejs-common": "^4.1.220",
     "tencentcloud-sdk-nodejs-region": "^4.1.179",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
