@@ -51,7 +51,7 @@
     "@types/node": "^20.17.30",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
-    "@vitest/coverage-v8": "^4.1.12",
+    "@vitest/coverage-v8": "^5.1.0",
     "babel-eslint": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-tencent": "^1.2.0",
