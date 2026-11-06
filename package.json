@@ -1,6 +1,6 @@
 {
   "name": "cls-mcp-server",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "main": "dist/index.js",
   "files": [
     "dist"
@@ -33,15 +33,15 @@
   },
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "moment": "^2.30.1",
     "moment-timezone": "^0.6.0",
-    "tencentcloud-sdk-nodejs-cls": "^4.1.319",
+    "tencentcloud-sdk-nodejs-cls": "^4.1.331",
     "tencentcloud-sdk-nodejs-common": "^4.1.220",
-    "tencentcloud-sdk-nodejs-region": "^4.1.179",
-    "zod": "^3.25.76"
+    "tencentcloud-sdk-nodejs-region": "^4.1.328",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
@@ -51,7 +51,7 @@
     "@types/node": "^20.17.30",
     "@typescript-eslint/eslint-plugin": "^8.26.0",
     "@typescript-eslint/parser": "^8.26.0",
-    "@vitest/coverage-v8": "^4.1.1",
+    "@vitest/coverage-v8": "^4.1.12",
     "babel-eslint": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-tencent": "^1.2.0",
@@ -64,7 +64,7 @@
     "ts-loader": "^9.5.1",
     "ts-node": "^10.9.0",
     "typescript": "^5.8.3",
-    "vitest": "^4.1.1",
+    "vitest": "^4.1.12",
     "webpack": "^5.104.1",
     "webpack-cli": "^5.1.4",
     "webpack-node-externals": "^3.0.0"
@@ -75,7 +75,11 @@
     ]
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "overrides": {
+    "minimatch@^10.2.2": "11.0.5",
+    "uuid@^9.0.1": "11.1.1"
   },
   "packageManager": "npm@10.9.2"
 }

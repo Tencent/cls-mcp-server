@@ -15,9 +15,10 @@ export const filtersSchema = z
   .array(
     z.object({
       Key: z.string().describe('过滤条件的键'),
-      Values: z.array(z.string()).describe('过滤条件的值列表'),
+      Values: z.array(z.string()).max(100).describe('过滤条件的值列表'),
     }),
   )
+  .max(50)
   .optional()
   .describe('过滤条件列表，每个过滤条件包含 Key 和 Values 字段。');
 
@@ -41,6 +42,7 @@ export const SearchLogRequestSchema = {
   TopicId: z.string().optional().describe('要检索分析的日志主题ID，仅能指定一个日志主题'),
   Topics: z
     .array(MultiTopicSearchInformationSchema)
+    .max(50)
     .optional()
     .describe('要检索分析的日志主题列表，最大支持50个日志主题'),
   Sort: z
