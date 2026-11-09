@@ -7,10 +7,8 @@ updates:
       day: monday
       time: "03:00"
       timezone: Asia/Shanghai
-    open-pull-requests-limit: 10
-    groups:
-      npm-minor-patch:
-        applies-to: version-updates
-        update-types:
-          - minor
-          - patch
+    # 0 = 关闭常规版本更新，只保留安全更新。
+    # 安全更新不受此项影响：由仓库的 Dependabot alerts + automated security fixes
+    # 驱动，固定上限为 10 个开启中的 PR，无法通过本字段调整。
+    # 注意不要改用 ignore: "*"，因为 ignore 会同时作用于安全更新。
+    open-pull-requests-limit: 0
